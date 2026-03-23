@@ -75,7 +75,35 @@ export default function HomePage() {
         </div>
 
         <div className="rounded-2xl bg-white p-6 shadow">
-          <p>ここに診断結果サマリーや相性カードを表示していきます。</p>
+          <p className="mb-4">ここに診断結果サマリーや相性カードを表示していきます。</p>
+
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => router.push("/profile")}
+              className="rounded-lg bg-yellow-400 px-4 py-2 font-bold"
+            >
+              プロフィールを見る
+            </button>
+
+            <button
+              type="button"
+              onClick={() => router.push("/org-map")}
+              className="rounded-lg bg-gray-800 px-4 py-2 font-bold text-white"
+            >
+              組織マップ
+            </button>
+
+            {(role === "admin" || role === "manager") && (
+              <button
+                type="button"
+                onClick={() => router.push("/feedback")}
+                className="rounded-lg bg-blue-600 px-4 py-2 font-bold text-white"
+              >
+                フィードバック入力
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </main>
