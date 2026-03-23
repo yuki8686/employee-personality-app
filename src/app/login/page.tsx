@@ -10,14 +10,22 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
     try {
+      setLoading(true);
       setError("");
+
       await signInWithEmailAndPassword(auth, email, password);
+
+      alert("ログイン成功");
       router.push("/home");
-    } catch {
+    } catch (err) {
+      console.error(err);
       setError("ログインに失敗しました。メールアドレスかパスワードを確認してください。");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -49,10 +57,12 @@ export default function LoginPage() {
         {error && <p className="mb-4 text-sm text-red-500">{error}</p>}
 
         <button
+          type="button"
           onClick={handleLogin}
-          className="w-full rounded-lg bg-yellow-400 py-3 font-bold"
+          disabled={loading}
+          className="w-full rounded-lg bg-yellow-400 py-3 font-bold disabled:opacity-50"
         >
-          ログイン
+          {loading ? "ログイン中..." : "ログイン"}
         </button>
       </div>
     </main>
