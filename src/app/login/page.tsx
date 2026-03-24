@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { useEffect, useState } from "react";
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 
@@ -11,15 +14,25 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        router.push("/home");
+        return;
+      }
+      setCheckingAuth(false);
+    });
+
+    return () => unsubscribe();
+  }, [router]);
 
   const handleLogin = async () => {
     try {
       setLoading(true);
       setError("");
-
       await signInWithEmailAndPassword(auth, email, password);
-
-      alert("ログイン成功");
       router.push("/home");
     } catch (err) {
       console.error(err);
@@ -29,15 +42,27 @@ export default function LoginPage() {
     }
   };
 
+  if (checkingAuth) {
+    return (
+      <main className="min-h-screen flex items-center justify-center p-6">
+        <div className="w-full max-w-md p4g-panel p-6">
+          <p className="text-lg font-bold">認証状態を確認中...</p>
+        </div>
+      </main>
+    );
+  }
+
   return (
-    <main className="min-h-screen flex items-center justify-center bg-yellow-50 p-6">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg">
-        <h1 className="text-2xl font-bold mb-6">ログイン</h1>
+    <main className="min-h-screen flex items-center justify-center p-6">
+      <div className="w-full max-w-md p4g-panel p-6">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold">ログイン</h1>
+        </div>
 
         <div className="mb-4">
-          <label className="block mb-2 text-sm">メールアドレス</label>
+          <label className="p4g-label">メールアドレス</label>
           <input
-            className="w-full rounded-lg border p-3"
+            className="p4g-input"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -45,22 +70,24 @@ export default function LoginPage() {
         </div>
 
         <div className="mb-4">
-          <label className="block mb-2 text-sm">パスワード</label>
+          <label className="p4g-label">パスワード</label>
           <input
-            className="w-full rounded-lg border p-3"
+            className="p4g-input"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
         </div>
 
-        {error && <p className="mb-4 text-sm text-red-500">{error}</p>}
+        {error && (
+          <p className="mb-4 text-sm font-bold text-red-600">{error}</p>
+        )}
 
         <button
           type="button"
           onClick={handleLogin}
           disabled={loading}
-          className="w-full rounded-lg bg-yellow-400 py-3 font-bold disabled:opacity-50"
+          className="p4g-button p4g-button-yellow w-full disabled:opacity-50"
         >
           {loading ? "ログイン中..." : "ログイン"}
         </button>

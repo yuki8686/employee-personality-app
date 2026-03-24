@@ -3,13 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-} from "firebase/firestore";
+import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import AppShell from "@/components/AppShell";
 
 type UserItem = {
   id: string;
@@ -48,10 +44,9 @@ export default function OrgMapPage() {
       }
 
       try {
-        // ログイン中ユーザー情報取得
         const meDoc = await getDoc(doc(db, "users", user.uid));
         if (!meDoc.exists()) {
-          alert("users コレクションにログイン中ユーザーの情報がありません");
+          alert("ユーザー情報が存在しません");
           router.push("/home");
           return;
         }
@@ -63,32 +58,28 @@ export default function OrgMapPage() {
         setCurrentRole(role);
         setCurrentDepartment(department);
 
-        // Admin / Manager 以外は利用不可
         if (role !== "admin" && role !== "manager") {
           setLoading(false);
           return;
         }
 
-        // users 取得
         const usersSnapshot = await getDocs(collection(db, "users"));
         const usersList = usersSnapshot.docs.map((docItem) => ({
           id: docItem.id,
           ...(docItem.data() as Omit<UserItem, "id">),
         }));
-
         setUsers(usersList);
 
-        // diagnostics 取得
         const diagnosticsSnapshot = await getDocs(collection(db, "diagnostics"));
-        const nextDiagnosticsMap: Record<string, DiagnosticItem> = {};
+        const nextMap: Record<string, DiagnosticItem> = {};
 
         diagnosticsSnapshot.docs.forEach((docItem) => {
-          nextDiagnosticsMap[docItem.id] = docItem.data() as DiagnosticItem;
+          nextMap[docItem.id] = docItem.data() as DiagnosticItem;
         });
 
-        setDiagnosticsMap(nextDiagnosticsMap);
+        setDiagnosticsMap(nextMap);
       } catch (error) {
-        console.error("組織マップ取得エラー:", error);
+        console.error("組織マップエラー:", error);
       } finally {
         setLoading(false);
       }
@@ -98,33 +89,30 @@ export default function OrgMapPage() {
   }, [router]);
 
   const departments = useMemo(() => {
-    const values = users
-      .map((user) => user.department || "")
-      .filter((value) => value !== "");
-    return Array.from(new Set(values));
+    const list = users
+      .map((u) => u.department || "")
+      .filter((v) => v !== "");
+    return Array.from(new Set(list));
   }, [users]);
 
   const filteredUsers = useMemo(() => {
     let list = [...users];
 
-    // role制御
     if (currentRole === "manager") {
-      list = list.filter((user) => user.department === currentDepartment);
+      list = list.filter((u) => u.department === currentDepartment);
     }
 
-    // 検索
     if (searchText.trim()) {
-      const keyword = searchText.trim().toLowerCase();
-      list = list.filter((user) => {
-        const name = (user.name || "").toLowerCase();
-        const email = (user.email || "").toLowerCase();
+      const keyword = searchText.toLowerCase();
+      list = list.filter((u) => {
+        const name = (u.name || "").toLowerCase();
+        const email = (u.email || "").toLowerCase();
         return name.includes(keyword) || email.includes(keyword);
       });
     }
 
-    // 部署フィルター
     if (departmentFilter) {
-      list = list.filter((user) => user.department === departmentFilter);
+      list = list.filter((u) => u.department === departmentFilter);
     }
 
     return list;
@@ -132,134 +120,115 @@ export default function OrgMapPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gray-100 p-6">
-        <div className="mx-auto max-w-6xl rounded-2xl bg-white p-6 shadow">
-          読み込み中...
-        </div>
-      </main>
+      <AppShell title="組織マップ">
+        <div className="p4g-card">読み込み中...</div>
+      </AppShell>
     );
   }
 
   if (currentRole !== "admin" && currentRole !== "manager") {
     return (
-      <main className="min-h-screen bg-gray-100 p-6">
-        <div className="mx-auto max-w-6xl rounded-2xl bg-white p-6 shadow">
-          <h1 className="mb-4 text-2xl font-bold">組織マップ</h1>
-          <p>この画面は Admin または Manager のみ利用できます。</p>
+      <AppShell title="組織マップ" role={currentRole}>
+        <div className="p4g-card">
+          この画面は Admin / Manager のみ利用できます
         </div>
-      </main>
+      </AppShell>
     );
   }
 
   return (
-    <main className="min-h-screen bg-gray-100 p-6">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-6 rounded-2xl bg-white p-6 shadow">
-          <h1 className="mb-4 text-2xl font-bold">組織マップ</h1>
-
-          <div className="mb-4 grid gap-4 md:grid-cols-3">
-            <div>
-              <label className="mb-2 block text-sm font-semibold">検索</label>
-              <input
-                type="text"
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                placeholder="名前 または メールで検索"
-                className="w-full rounded-lg border p-3"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-semibold">部署フィルター</label>
-              <select
-                value={departmentFilter}
-                onChange={(e) => setDepartmentFilter(e.target.value)}
-                className="w-full rounded-lg border p-3"
-              >
-                <option value="">すべて</option>
-                {departments.map((department) => (
-                  <option key={department} value={department}>
-                    {department}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex items-end">
-              <button
-                type="button"
-                onClick={() => router.push("/home")}
-                className="rounded-lg bg-gray-800 px-4 py-3 font-bold text-white"
-              >
-                ホームへ戻る
-              </button>
-            </div>
+    <AppShell title="組織マップ" role={currentRole}>
+      <div className="p4g-card mb-6">
+        <div className="grid md:grid-cols-3 gap-4 mb-4">
+          <div>
+            <label className="p4g-label">検索</label>
+            <input
+              type="text"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              placeholder="名前 or メール"
+              className="p4g-input"
+            />
           </div>
 
-          <p className="text-sm text-gray-600">
-            表示件数: {filteredUsers.length} 件
-          </p>
+          <div>
+            <label className="p4g-label">部署</label>
+            <select
+              value={departmentFilter}
+              onChange={(e) => setDepartmentFilter(e.target.value)}
+              className="p4g-select"
+            >
+              <option value="">すべて</option>
+              {departments.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-end">
+            <button
+              onClick={() => router.push("/home")}
+              className="p4g-button p4g-button-dark"
+            >
+              ホームへ戻る
+            </button>
+          </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {filteredUsers.map((user) => {
-            const diagnostic = diagnosticsMap[user.id];
+        <p className="text-sm text-gray-600">表示件数: {filteredUsers.length}</p>
+      </div>
 
-            return (
-              <div key={user.id} className="rounded-2xl bg-white p-5 shadow">
-                <div className="mb-4 flex items-center gap-4">
-                  {user.profileImageUrl ? (
-                    <img
-                      src={user.profileImageUrl}
-                      alt="profile"
-                      className="h-16 w-16 rounded-full border object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full border bg-gray-100 text-xs text-gray-500">
-                      画像なし
-                    </div>
-                  )}
+      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {filteredUsers.map((user) => {
+          const diag = diagnosticsMap[user.id];
 
-                  <div>
-                    <h2 className="text-lg font-bold">{user.name || "名前未設定"}</h2>
-                    <p className="text-sm text-gray-600">{user.email || "-"}</p>
+          return (
+            <div key={user.id} className="p4g-card">
+              <div className="flex gap-4 mb-4 items-center">
+                {user.profileImageUrl ? (
+                  <img
+                    src={user.profileImageUrl}
+                    className="w-16 h-16 rounded-full object-cover border-2 border-black"
+                    alt="profile"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-gray-100 border-2 border-black flex items-center justify-center text-xs">
+                    画像なし
                   </div>
-                </div>
+                )}
 
-                <div className="space-y-1 text-sm">
-                  <p>部署: {user.department || "-"}</p>
-                  <p>権限: {user.role || "-"}</p>
-                  <p>MBTI: {diagnostic?.mbti || "-"}</p>
-                  <p>ビジネス人格: {diagnostic?.businessCode || "-"}</p>
-                  <p>
-                    信頼度:{" "}
-                    {typeof diagnostic?.confidence === "number"
-                      ? `${diagnostic.confidence}%`
-                      : "-"}
-                  </p>
-                  <p>診断日: {diagnostic?.diagnosedAt || "-"}</p>
-                </div>
-
-                <div className="mt-4">
-                  <button
-                    type="button"
-                    onClick={() => router.push("/profile")}
-                    className="rounded-lg bg-yellow-400 px-4 py-2 font-bold"
-                  >
-                    プロフィールを見る
-                  </button>
+                <div>
+                  <h2 className="font-extrabold">{user.name || "未設定"}</h2>
+                  <p className="text-sm text-gray-600">{user.email || "-"}</p>
                 </div>
               </div>
-            );
-          })}
-        </div>
 
-        {filteredUsers.length === 0 && (
-          <div className="mt-6 rounded-2xl bg-white p-6 text-center shadow">
-            該当する社員がいません
-          </div>
-        )}
+              <div className="text-sm space-y-1">
+                <p>部署: {user.department || "-"}</p>
+                <p>権限: {user.role || "-"}</p>
+                <p>MBTI: {diag?.mbti || "-"}</p>
+                <p>ビジネス人格: {diag?.businessCode || "-"}</p>
+                <p>信頼度: {typeof diag?.confidence === "number" ? `${diag.confidence}%` : "-"}</p>
+              </div>
+
+              <div className="mt-4">
+                <button
+                  onClick={() => router.push(`/profile/${user.id}`)}
+                  className="p4g-button p4g-button-yellow"
+                >
+                  詳細を見る
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
-    </main>
+
+      {filteredUsers.length === 0 && (
+        <div className="mt-6 p4g-card text-center">
+          該当する社員がいません
+        </div>
+      )}
+    </AppShell>
   );
 }

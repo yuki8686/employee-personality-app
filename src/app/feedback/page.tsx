@@ -11,6 +11,7 @@ import {
   getDocs,
 } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import AppShell from "@/components/AppShell";
 
 type UserItem = {
   id: string;
@@ -45,7 +46,6 @@ export default function FeedbackPage() {
       try {
         setCurrentUserId(user.uid);
 
-        // 自分の users ドキュメントを直接読む
         const meDoc = await getDoc(doc(db, "users", user.uid));
 
         if (!meDoc.exists()) {
@@ -58,7 +58,6 @@ export default function FeedbackPage() {
         setCurrentUserName(meData.name || "");
         setCurrentRole((meData.role || "").trim().toLowerCase());
 
-        // ユーザー一覧を取得
         const usersSnapshot = await getDocs(collection(db, "users"));
         const usersList = usersSnapshot.docs.map((docItem) => ({
           id: docItem.id,
@@ -114,37 +113,31 @@ export default function FeedbackPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gray-100 p-6">
-        <div className="mx-auto max-w-3xl rounded-2xl bg-white p-6 shadow">
-          読み込み中...
-        </div>
-      </main>
+      <AppShell title="フィードバック入力">
+        <div className="p4g-card">読み込み中...</div>
+      </AppShell>
     );
   }
 
   if (currentRole !== "admin" && currentRole !== "manager") {
     return (
-      <main className="min-h-screen bg-gray-100 p-6">
-        <div className="mx-auto max-w-3xl rounded-2xl bg-white p-6 shadow">
-          <h1 className="mb-4 text-2xl font-bold">フィードバック入力</h1>
-          <p className="mb-2">この画面は Admin または Manager のみ利用できます。</p>
-          <p className="text-sm text-gray-600">現在の role: {currentRole || "未取得"}</p>
+      <AppShell title="フィードバック入力" role={currentRole}>
+        <div className="p4g-card">
+          この画面は Admin または Manager のみ利用できます。
         </div>
-      </main>
+      </AppShell>
     );
   }
 
   return (
-    <main className="min-h-screen bg-gray-100 p-6">
-      <div className="mx-auto max-w-3xl rounded-2xl bg-white p-6 shadow">
-        <h1 className="mb-6 text-2xl font-bold">フィードバック入力</h1>
-
+    <AppShell title="フィードバック入力" role={currentRole}>
+      <div className="p4g-card">
         <div className="mb-4">
-          <label className="mb-2 block text-sm font-semibold">対象社員</label>
+          <label className="p4g-label">対象社員</label>
           <select
             value={targetUserId}
             onChange={(e) => setTargetUserId(e.target.value)}
-            className="w-full rounded-lg border p-3"
+            className="p4g-select"
           >
             <option value="">選択してください</option>
             {users.map((user) => (
@@ -156,50 +149,50 @@ export default function FeedbackPage() {
         </div>
 
         <div className="mb-4">
-          <label className="mb-2 block text-sm font-semibold">現在の課題</label>
+          <label className="p4g-label">現在の課題</label>
           <textarea
             value={challenge}
             onChange={(e) => setChallenge(e.target.value)}
-            className="w-full rounded-lg border p-3"
+            className="p4g-textarea"
             rows={3}
           />
         </div>
 
         <div className="mb-4">
-          <label className="mb-2 block text-sm font-semibold">印象</label>
+          <label className="p4g-label">印象</label>
           <textarea
             value={impression}
             onChange={(e) => setImpression(e.target.value)}
-            className="w-full rounded-lg border p-3"
+            className="p4g-textarea"
             rows={3}
           />
         </div>
 
         <div className="mb-4">
-          <label className="mb-2 block text-sm font-semibold">期待していること</label>
+          <label className="p4g-label">期待していること</label>
           <textarea
             value={expectation}
             onChange={(e) => setExpectation(e.target.value)}
-            className="w-full rounded-lg border p-3"
+            className="p4g-textarea"
             rows={3}
           />
         </div>
 
         <div className="mb-6">
-          <label className="mb-2 block text-sm font-semibold">自由コメント</label>
+          <label className="p4g-label">自由コメント</label>
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            className="w-full rounded-lg border p-3"
+            className="p4g-textarea"
             rows={4}
           />
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <button
             type="button"
             onClick={handleSubmit}
-            className="rounded-lg bg-yellow-400 px-4 py-2 font-bold"
+            className="p4g-button p4g-button-yellow"
           >
             保存
           </button>
@@ -207,12 +200,12 @@ export default function FeedbackPage() {
           <button
             type="button"
             onClick={() => router.push("/home")}
-            className="rounded-lg bg-gray-800 px-4 py-2 font-bold text-white"
+            className="p4g-button p4g-button-dark"
           >
             ホームへ戻る
           </button>
         </div>
       </div>
-    </main>
+    </AppShell>
   );
 }

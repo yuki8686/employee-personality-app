@@ -1,8 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f5f1dc;
+  --foreground: #111111;
+  --card: #fffdf7;
+  --accent: #f5c400;
+  --accent-dark: #d4a700;
+  --line: #1b1b1b;
+  --muted: #6b7280;
 }
 
 html,
@@ -10,11 +15,113 @@ body {
   margin: 0;
   padding: 0;
   min-height: 100%;
-  background: var(--background);
+  background:
+    radial-gradient(circle at top left, #fff7bf 0%, #f5f1dc 40%, #eee7c9 100%);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
 
 * {
   box-sizing: border-box;
+}
+
+button {
+  cursor: pointer;
+}
+
+.p4g-panel {
+  background: linear-gradient(180deg, #fffef9 0%, #f8f1d8 100%);
+  border: 2px solid #1a1a1a;
+  border-radius: 20px;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.12);
+}
+
+.p4g-title {
+  display: inline-block;
+  background: linear-gradient(90deg, #f5d000 0%, #ffd84a 100%);
+  border: 2px solid #111;
+  padding: 10px 16px;
+  border-radius: 14px;
+  font-weight: 800;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.15);
+}
+
+.p4g-button {
+  border: 2px solid #111;
+  border-radius: 14px;
+  font-weight: 700;
+  padding: 10px 16px;
+  transition: 0.2s ease;
+}
+
+.p4g-button:hover {
+  transform: translateY(-1px);
+}
+
+.p4g-button-yellow {
+  background: linear-gradient(180deg, #ffe25a 0%, #f5c400 100%);
+  color: #111;
+}
+
+.p4g-button-dark {
+  background: #111;
+  color: white;
+}
+
+.p4g-button-blue {
+  background: #2563eb;
+  color: white;
+}
+
+.p4g-button-green {
+  background: #16a34a;
+  color: white;
+}
+
+.p4g-button-red {
+  background: #dc2626;
+  color: white;
+}
+
+.p4g-chip {
+  display: inline-block;
+  border: 2px solid #111;
+  border-radius: 9999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  background: #fff;
+}
+
+.p4g-stat {
+  border: 2px solid #111;
+  border-radius: 18px;
+  padding: 18px;
+  background: linear-gradient(180deg, #fffef9 0%, #fff4b8 100%);
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.1);
+}
+
+.p4g-card {
+  border: 2px solid #111;
+  border-radius: 18px;
+  padding: 18px;
+  background: var(--card);
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.08);
+}
+
+.p4g-input,
+.p4g-select,
+.p4g-textarea {
+  width: 100%;
+  border: 2px solid #111;
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: white;
+}
+
+.p4g-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 700;
 }

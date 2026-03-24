@@ -9,11 +9,9 @@ import {
   getDoc,
   getDocs,
   query,
-  updateDoc,
   where,
 } from "firebase/firestore";
-import { useRouter } from "next/navigation";
-import ImageUploader from "@/components/ImageUploader";
+import { useParams, useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
 
 type MatchPerson = {
@@ -42,9 +40,12 @@ function normalizeMatches(value: any): MatchPerson[] {
   return [];
 }
 
-export default function ProfilePage() {
+export default function UserProfileDetailPage() {
   const router = useRouter();
+  const params = useParams();
+  const uid = params.uid as string;
 
+  const [currentUserRole, setCurrentUserRole] = useState("");
   const [profile, setProfile] = useState<any>(null);
   const [diagnostic, setDiagnostic] = useState<any>(null);
   const [compatibility, setCompatibility] = useState<any>(null);
@@ -59,63 +60,57 @@ export default function ProfilePage() {
       }
 
       try {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
+        const meDoc = await getDoc(doc(db, "users", user.uid));
+        if (!meDoc.exists()) {
+          alert("ログイン中ユーザーの情報がありません");
+          router.push("/home");
+          return;
+        }
+
+        const me = meDoc.data();
+        const role = (me.role || "").trim().toLowerCase();
+        setCurrentUserRole(role);
+
+        if (role !== "admin" && role !== "manager") {
+          alert("この画面は Admin または Manager のみ利用できます");
+          router.push("/home");
+          return;
+        }
+
+        const userDoc = await getDoc(doc(db, "users", uid));
         if (userDoc.exists()) {
           setProfile(userDoc.data());
         }
 
-        const diagnosticDoc = await getDoc(doc(db, "diagnostics", user.uid));
+        const diagnosticDoc = await getDoc(doc(db, "diagnostics", uid));
         if (diagnosticDoc.exists()) {
           setDiagnostic(diagnosticDoc.data());
         }
 
-        const compatibilityDoc = await getDoc(doc(db, "compatibilities", user.uid));
+        const compatibilityDoc = await getDoc(doc(db, "compatibilities", uid));
         if (compatibilityDoc.exists()) {
           setCompatibility(compatibilityDoc.data());
         }
 
         const feedbackQuery = query(
           collection(db, "feedbacks"),
-          where("targetUserId", "==", user.uid)
+          where("targetUserId", "==", uid)
         );
         const feedbackSnapshot = await getDocs(feedbackQuery);
-
         const feedbackList = feedbackSnapshot.docs.map((docItem) => ({
           id: docItem.id,
           ...(docItem.data() as Omit<FeedbackItem, "id">),
         }));
-
         setFeedbacks(feedbackList);
       } catch (error) {
-        console.error("プロフィール取得エラー:", error);
+        console.error("他人プロフィール取得エラー:", error);
       } finally {
         setLoading(false);
       }
     });
 
     return () => unsubscribe();
-  }, [router]);
-
-  const handleImageUpload = async (url: string) => {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    try {
-      await updateDoc(doc(db, "users", user.uid), {
-        profileImageUrl: url,
-      });
-
-      setProfile((prev: any) => ({
-        ...prev,
-        profileImageUrl: url,
-      }));
-
-      alert("プロフィール画像を更新しました");
-    } catch (error) {
-      console.error("画像更新エラー:", error);
-      alert("画像の更新に失敗しました");
-    }
-  };
+  }, [router, uid]);
 
   const goodMatches = useMemo(
     () => normalizeMatches(compatibility?.goodMatches),
@@ -129,16 +124,24 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <AppShell title="プロフィール">
+      <AppShell title="社員詳細プロフィール" role={currentUserRole}>
         <div className="p4g-card">読み込み中...</div>
       </AppShell>
     );
   }
 
-  const normalizedRole = (profile?.role || "").trim().toLowerCase();
-
   return (
-    <AppShell title="プロフィール" role={profile?.role}>
+    <AppShell title="社員詳細プロフィール" role={currentUserRole}>
+      <div className="mb-6">
+        <button
+          type="button"
+          onClick={() => router.push("/org-map")}
+          className="p4g-button p4g-button-dark"
+        >
+          組織マップへ戻る
+        </button>
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="p4g-card">
           <h2 className="mb-4 text-xl font-extrabold">基本情報</h2>
@@ -147,17 +150,15 @@ export default function ProfilePage() {
             <img
               src={profile.profileImageUrl}
               alt="profile"
-              className="mb-4 h-32 w-32 rounded-full border object-cover"
+              className="mb-4 h-32 w-32 rounded-full border-2 border-black object-cover"
             />
           ) : (
-            <div className="mb-4 flex h-32 w-32 items-center justify-center rounded-full border bg-gray-100 text-sm text-gray-500">
+            <div className="mb-4 flex h-32 w-32 items-center justify-center rounded-full border-2 border-black bg-gray-100 text-sm text-gray-500">
               画像なし
             </div>
           )}
 
-          <ImageUploader onUpload={handleImageUpload} />
-
-          <div className="mt-5 space-y-2 text-sm">
+          <div className="space-y-2 text-sm">
             <p>名前: {profile?.name || "-"}</p>
             <p>メール: {profile?.email || "-"}</p>
             <p>部署: {profile?.department || "-"}</p>
@@ -167,6 +168,7 @@ export default function ProfilePage() {
 
         <div className="p4g-card lg:col-span-2">
           <h2 className="mb-4 text-xl font-extrabold">診断結果</h2>
+
           <div className="grid gap-4 md:grid-cols-4">
             <div className="p4g-stat">
               <p className="text-sm text-gray-500">MBTI</p>
@@ -253,12 +255,7 @@ export default function ProfilePage() {
                 key={person.userId || `${person.name}-${index}`}
                 className="mb-3 rounded-xl border-2 border-black bg-red-50 p-4"
               >
-                <p>
-                  名前:{" "}
-                  {normalizedRole === "employee"
-                    ? "非表示"
-                    : person.name || "不明"}
-                </p>
+                <p>名前: {person.name || "不明"}</p>
                 <p>診断結果: {person.mbti || "-"} × {person.businessCode || "-"}</p>
               </div>
             ))
@@ -268,27 +265,25 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {normalizedRole !== "partner" && (
-        <div className="mt-6 p4g-card">
-          <h2 className="mb-4 text-xl font-extrabold">過去のフィードバック</h2>
-          <p className="mb-3 text-sm text-gray-500">件数: {feedbacks.length}</p>
+      <div className="mt-6 p4g-card">
+        <h2 className="mb-4 text-xl font-extrabold">過去のフィードバック</h2>
+        <p className="mb-3 text-sm text-gray-500">件数: {feedbacks.length}</p>
 
-          {feedbacks.length > 0 ? (
-            feedbacks.map((item) => (
-              <div key={item.id} className="mb-4 rounded-xl border-2 border-black p-4">
-                <p className="mb-1 text-sm text-gray-500">投稿日: {item.createdAt}</p>
-                <p className="mb-1">投稿者: {item.fromUserName}</p>
-                <p className="mb-1">現在の課題: {item.challenge}</p>
-                <p className="mb-1">印象: {item.impression}</p>
-                <p className="mb-1">期待していること: {item.expectation}</p>
-                <p>コメント: {item.comment}</p>
-              </div>
-            ))
-          ) : (
-            <p>フィードバックはまだありません</p>
-          )}
-        </div>
-      )}
+        {feedbacks.length > 0 ? (
+          feedbacks.map((item) => (
+            <div key={item.id} className="mb-4 rounded-xl border-2 border-black p-4">
+              <p className="mb-1 text-sm text-gray-500">投稿日: {item.createdAt}</p>
+              <p className="mb-1">投稿者: {item.fromUserName}</p>
+              <p className="mb-1">現在の課題: {item.challenge}</p>
+              <p className="mb-1">印象: {item.impression}</p>
+              <p className="mb-1">期待していること: {item.expectation}</p>
+              <p>コメント: {item.comment}</p>
+            </div>
+          ))
+        ) : (
+          <p>フィードバックはまだありません</p>
+        )}
+      </div>
     </AppShell>
   );
 }

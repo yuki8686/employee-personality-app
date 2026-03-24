@@ -9,5 +9,5 @@ export async function getUserRole(uid: string) {
     throw new Error("ユーザー情報が存在しません");
   }
 
-  return docSnap.data().role;
+  return (docSnap.data().role || "").trim().toLowerCase();
 }
