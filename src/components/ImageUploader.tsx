@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 type Props = {
   onUpload: (url: string) => void;
@@ -8,6 +8,7 @@ type Props = {
 
 export default function ImageUploader({ onUpload }: Props) {
   const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleUpload = async (file: File) => {
     try {
@@ -34,7 +35,7 @@ export default function ImageUploader({ onUpload }: Props) {
         onUpload(data.secure_url);
       } else {
         console.error(data);
-        alert("アップロード失敗");
+        alert("アップロードに失敗しました");
       }
     } catch (error) {
       console.error(error);
@@ -45,17 +46,27 @@ export default function ImageUploader({ onUpload }: Props) {
   };
 
   return (
-    <div>
+    <div className="mt-4">
       <input
+        ref={fileInputRef}
         type="file"
         accept="image/*"
+        className="hidden"
         onChange={(e) => {
           if (e.target.files?.[0]) {
             handleUpload(e.target.files[0]);
           }
         }}
       />
-      {uploading && <p className="mt-2 text-sm text-gray-500">アップロード中...</p>}
+
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={uploading}
+        className="w-full rounded-[16px] border-[3px] border-black bg-gradient-to-b from-[#ffe75b] to-[#f4cb14] px-4 py-3 text-base font-black text-black shadow-[0_4px_0_rgba(0,0,0,0.14)] disabled:opacity-50"
+      >
+        {uploading ? "アップロード中..." : "写真をアップロード"}
+      </button>
     </div>
   );
 }

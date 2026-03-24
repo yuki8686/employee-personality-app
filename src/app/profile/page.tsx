@@ -130,7 +130,9 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <AppShell title="プロフィール">
-        <div className="p4g-card">読み込み中...</div>
+        <div className="rounded-[22px] border-[3px] border-black bg-white p-6 shadow-[0_6px_0_rgba(0,0,0,0.12)]">
+          読み込み中...
+        </div>
       </AppShell>
     );
   }
@@ -139,25 +141,25 @@ export default function ProfilePage() {
 
   return (
     <AppShell title="プロフィール" role={profile?.role}>
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="p4g-card">
-          <h2 className="mb-4 text-xl font-extrabold">基本情報</h2>
+      <div className="grid gap-5 lg:grid-cols-3">
+        <div className="rounded-[24px] border-[3px] border-black bg-[#f8f7f2] p-5 shadow-[0_6px_0_rgba(0,0,0,0.12)]">
+          <h2 className="mb-5 text-2xl font-black">基本情報</h2>
 
           {profile?.profileImageUrl ? (
             <img
               src={profile.profileImageUrl}
               alt="profile"
-              className="mb-4 h-32 w-32 rounded-full border object-cover"
+              className="mb-4 h-40 w-40 rounded-full border-2 border-gray-500 object-cover"
             />
           ) : (
-            <div className="mb-4 flex h-32 w-32 items-center justify-center rounded-full border bg-gray-100 text-sm text-gray-500">
+            <div className="mb-4 flex h-40 w-40 items-center justify-center rounded-full border-2 border-gray-500 bg-gray-100 text-2xl text-gray-500">
               画像なし
             </div>
           )}
 
           <ImageUploader onUpload={handleImageUpload} />
 
-          <div className="mt-5 space-y-2 text-sm">
+          <div className="mt-6 space-y-3 text-xl font-semibold leading-relaxed">
             <p>名前: {profile?.name || "-"}</p>
             <p>メール: {profile?.email || "-"}</p>
             <p>部署: {profile?.department || "-"}</p>
@@ -165,62 +167,76 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <div className="p4g-card lg:col-span-2">
-          <h2 className="mb-4 text-xl font-extrabold">診断結果</h2>
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="p4g-stat">
-              <p className="text-sm text-gray-500">MBTI</p>
-              <p className="mt-1 text-lg font-extrabold">{diagnostic?.mbti || "-"}</p>
+        <div className="rounded-[24px] border-[3px] border-black bg-[#f8f7f2] p-5 shadow-[0_6px_0_rgba(0,0,0,0.12)] lg:col-span-2">
+          <h2 className="mb-5 text-2xl font-black">診断結果</h2>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-[20px] border-[3px] border-black bg-gradient-to-b from-[#f4f2ea] to-[#f4eab0] p-5 shadow-[0_5px_0_rgba(0,0,0,0.12)]">
+              <p className="text-lg font-bold text-gray-500">MBTI</p>
+              <p className="mt-3 text-4xl font-black">{diagnostic?.mbti || "-"}</p>
             </div>
-            <div className="p4g-stat">
-              <p className="text-sm text-gray-500">ビジネス人格</p>
-              <p className="mt-1 text-lg font-extrabold">{diagnostic?.businessCode || "-"}</p>
+
+            <div className="rounded-[20px] border-[3px] border-black bg-gradient-to-b from-[#f4f2ea] to-[#f4eab0] p-5 shadow-[0_5px_0_rgba(0,0,0,0.12)]">
+              <p className="text-lg font-bold text-gray-500">ビジネス人格</p>
+              <p className="mt-3 text-4xl font-black">
+                {diagnostic?.businessCode || "-"}
+              </p>
             </div>
-            <div className="p4g-stat">
-              <p className="text-sm text-gray-500">信頼度</p>
-              <p className="mt-1 text-lg font-extrabold">
+
+            <div className="rounded-[20px] border-[3px] border-black bg-gradient-to-b from-[#f4f2ea] to-[#f4eab0] p-5 shadow-[0_5px_0_rgba(0,0,0,0.12)]">
+              <p className="text-lg font-bold text-gray-500">信頼度</p>
+              <p className="mt-3 text-4xl font-black">
                 {typeof diagnostic?.confidence === "number"
                   ? `${diagnostic.confidence}%`
                   : "-"}
               </p>
             </div>
-            <div className="p4g-stat">
-              <p className="text-sm text-gray-500">診断日</p>
-              <p className="mt-1 text-lg font-extrabold">{diagnostic?.diagnosedAt || "-"}</p>
+
+            <div className="rounded-[20px] border-[3px] border-black bg-gradient-to-b from-[#f4f2ea] to-[#f4eab0] p-5 shadow-[0_5px_0_rgba(0,0,0,0.12)]">
+              <p className="text-lg font-bold text-gray-500">診断日</p>
+              <p className="mt-3 text-3xl font-black">
+                {diagnostic?.diagnosedAt || "-"}
+              </p>
             </div>
           </div>
 
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
-            <div className="p4g-card">
-              <p className="mb-2 font-extrabold">強み</p>
-              <ul className="list-disc pl-5">
-                {Array.isArray(diagnostic?.strengths)
-                  ? diagnostic.strengths.map((item: string, index: number) => (
-                      <li key={index}>{item}</li>
-                    ))
-                  : <li>データがありません</li>}
+          <div className="mt-5 grid gap-4 md:grid-cols-3">
+            <div className="rounded-[20px] border-[3px] border-black bg-[#f8f7f2] p-5 shadow-[0_5px_0_rgba(0,0,0,0.1)]">
+              <p className="mb-3 text-2xl font-black">強み</p>
+              <ul className="list-disc pl-6 text-xl font-semibold leading-relaxed">
+                {Array.isArray(diagnostic?.strengths) && diagnostic.strengths.length > 0 ? (
+                  diagnostic.strengths.map((item: string, index: number) => (
+                    <li key={index}>{item}</li>
+                  ))
+                ) : (
+                  <li>データがありません</li>
+                )}
               </ul>
             </div>
 
-            <div className="p4g-card">
-              <p className="mb-2 font-extrabold">弱み</p>
-              <ul className="list-disc pl-5">
-                {Array.isArray(diagnostic?.weaknesses)
-                  ? diagnostic.weaknesses.map((item: string, index: number) => (
-                      <li key={index}>{item}</li>
-                    ))
-                  : <li>データがありません</li>}
+            <div className="rounded-[20px] border-[3px] border-black bg-[#f8f7f2] p-5 shadow-[0_5px_0_rgba(0,0,0,0.1)]">
+              <p className="mb-3 text-2xl font-black">弱み</p>
+              <ul className="list-disc pl-6 text-xl font-semibold leading-relaxed">
+                {Array.isArray(diagnostic?.weaknesses) && diagnostic.weaknesses.length > 0 ? (
+                  diagnostic.weaknesses.map((item: string, index: number) => (
+                    <li key={index}>{item}</li>
+                  ))
+                ) : (
+                  <li>データがありません</li>
+                )}
               </ul>
             </div>
 
-            <div className="p4g-card">
-              <p className="mb-2 font-extrabold">特性</p>
-              <ul className="list-disc pl-5">
-                {Array.isArray(diagnostic?.traits)
-                  ? diagnostic.traits.map((item: string, index: number) => (
-                      <li key={index}>{item}</li>
-                    ))
-                  : <li>データがありません</li>}
+            <div className="rounded-[20px] border-[3px] border-black bg-[#f8f7f2] p-5 shadow-[0_5px_0_rgba(0,0,0,0.1)]">
+              <p className="mb-3 text-2xl font-black">特性</p>
+              <ul className="list-disc pl-6 text-xl font-semibold leading-relaxed">
+                {Array.isArray(diagnostic?.traits) && diagnostic.traits.length > 0 ? (
+                  diagnostic.traits.map((item: string, index: number) => (
+                    <li key={index}>{item}</li>
+                  ))
+                ) : (
+                  <li>データがありません</li>
+                )}
               </ul>
             </div>
           </div>
@@ -228,66 +244,75 @@ export default function ProfilePage() {
       </div>
 
       {normalizedRole !== "partner" && (
-        <div className="mt-6 grid gap-6 lg:grid-cols-2">
-          <div className="p4g-card">
-            <h2 className="mb-4 text-xl font-extrabold">相性が良い社員</h2>
+        <div className="mt-5 grid gap-5 lg:grid-cols-2">
+          <div className="rounded-[24px] border-[3px] border-black bg-[#f8f7f2] p-5 shadow-[0_6px_0_rgba(0,0,0,0.12)]">
+            <h2 className="mb-4 text-2xl font-black">相性が良い社員</h2>
             {goodMatches.length > 0 ? (
               goodMatches.map((person: MatchPerson, index: number) => (
                 <div
                   key={person.userId || `${person.name}-${index}`}
-                  className="mb-3 rounded-xl border-2 border-black bg-green-50 p-4"
+                  className="mb-3 rounded-[18px] border-[3px] border-black bg-[#edf9df] p-4"
                 >
-                  <p>名前: {person.name || "不明"}</p>
-                  <p>診断結果: {person.mbti || "-"} × {person.businessCode || "-"}</p>
+                  <p className="text-xl font-black">名前: {person.name || "不明"}</p>
+                  <p className="mt-1 text-lg font-semibold">
+                    診断結果: {person.mbti || "-"} × {person.businessCode || "-"}
+                  </p>
                 </div>
               ))
             ) : (
-              <p>データがありません</p>
+              <p className="text-lg font-semibold">データがありません</p>
             )}
           </div>
 
-          <div className="p4g-card">
-            <h2 className="mb-4 text-xl font-extrabold">衝突の可能性がある社員</h2>
+          <div className="rounded-[24px] border-[3px] border-black bg-[#f8f7f2] p-5 shadow-[0_6px_0_rgba(0,0,0,0.12)]">
+            <h2 className="mb-4 text-2xl font-black">衝突の可能性がある社員</h2>
             {conflictMatches.length > 0 ? (
               conflictMatches.map((person: MatchPerson, index: number) => (
                 <div
                   key={person.userId || `${person.name}-${index}`}
-                  className="mb-3 rounded-xl border-2 border-black bg-red-50 p-4"
+                  className="mb-3 rounded-[18px] border-[3px] border-black bg-[#fde7e7] p-4"
                 >
-                  <p>
+                  <p className="text-xl font-black">
                     名前:{" "}
                     {normalizedRole === "employee"
                       ? "非表示"
                       : person.name || "不明"}
                   </p>
-                  <p>診断結果: {person.mbti || "-"} × {person.businessCode || "-"}</p>
+                  <p className="mt-1 text-lg font-semibold">
+                    診断結果: {person.mbti || "-"} × {person.businessCode || "-"}
+                  </p>
                 </div>
               ))
             ) : (
-              <p>データがありません</p>
+              <p className="text-lg font-semibold">データがありません</p>
             )}
           </div>
         </div>
       )}
 
       {normalizedRole !== "partner" && (
-        <div className="mt-6 p4g-card">
-          <h2 className="mb-4 text-xl font-extrabold">過去のフィードバック</h2>
-          <p className="mb-3 text-sm text-gray-500">件数: {feedbacks.length}</p>
+        <div className="mt-5 rounded-[24px] border-[3px] border-black bg-[#f8f7f2] p-5 shadow-[0_6px_0_rgba(0,0,0,0.12)]">
+          <h2 className="mb-4 text-2xl font-black">過去のフィードバック</h2>
+          <p className="mb-4 text-base font-bold text-gray-500">件数: {feedbacks.length}</p>
 
           {feedbacks.length > 0 ? (
             feedbacks.map((item) => (
-              <div key={item.id} className="mb-4 rounded-xl border-2 border-black p-4">
-                <p className="mb-1 text-sm text-gray-500">投稿日: {item.createdAt}</p>
-                <p className="mb-1">投稿者: {item.fromUserName}</p>
-                <p className="mb-1">現在の課題: {item.challenge}</p>
-                <p className="mb-1">印象: {item.impression}</p>
-                <p className="mb-1">期待していること: {item.expectation}</p>
-                <p>コメント: {item.comment}</p>
+              <div
+                key={item.id}
+                className="mb-4 rounded-[18px] border-[3px] border-black bg-white p-4"
+              >
+                <p className="mb-1 text-sm font-bold text-gray-500">投稿日: {item.createdAt}</p>
+                <p className="mb-1 text-lg font-semibold">投稿者: {item.fromUserName}</p>
+                <p className="mb-1 text-lg font-semibold">現在の課題: {item.challenge}</p>
+                <p className="mb-1 text-lg font-semibold">印象: {item.impression}</p>
+                <p className="mb-1 text-lg font-semibold">
+                  期待していること: {item.expectation}
+                </p>
+                <p className="text-lg font-semibold">コメント: {item.comment}</p>
               </div>
             ))
           ) : (
-            <p>フィードバックはまだありません</p>
+            <p className="text-lg font-semibold">フィードバックはまだありません</p>
           )}
         </div>
       )}
