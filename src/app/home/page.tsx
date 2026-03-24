@@ -6,7 +6,7 @@ import { auth, db } from "@/lib/firebase";
 import { getUserRole } from "@/utils/role";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 
 export default function HomePage() {
   const router = useRouter();
@@ -33,7 +33,11 @@ export default function HomePage() {
         const usersSnapshot = await getDocs(collection(db, "users"));
         setUserCount(usersSnapshot.docs.length);
 
-        const feedbackSnapshot = await getDocs(collection(db, "feedbacks"));
+        const feedbackQuery = query(
+          collection(db, "feedbacks"),
+          where("targetUserId", "==", firebaseUser.uid)
+        );
+        const feedbackSnapshot = await getDocs(feedbackQuery);
         setFeedbackCount(feedbackSnapshot.docs.length);
       } catch (error) {
         console.error("ホーム取得エラー:", error);
@@ -74,7 +78,7 @@ export default function HomePage() {
         </div>
 
         <div className="p4g-stat">
-          <p className="text-sm text-gray-600">フィードバック件数</p>
+          <p className="text-sm text-gray-600">自分宛てフィードバック件数</p>
           <p className="mt-2 text-3xl font-extrabold">{feedbackCount}</p>
         </div>
       </div>

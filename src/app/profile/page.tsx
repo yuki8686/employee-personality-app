@@ -227,46 +227,48 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <div className="p4g-card">
-          <h2 className="mb-4 text-xl font-extrabold">相性が良い社員</h2>
-          {goodMatches.length > 0 ? (
-            goodMatches.map((person: MatchPerson, index: number) => (
-              <div
-                key={person.userId || `${person.name}-${index}`}
-                className="mb-3 rounded-xl border-2 border-black bg-green-50 p-4"
-              >
-                <p>名前: {person.name || "不明"}</p>
-                <p>診断結果: {person.mbti || "-"} × {person.businessCode || "-"}</p>
-              </div>
-            ))
-          ) : (
-            <p>データがありません</p>
-          )}
-        </div>
+      {normalizedRole !== "partner" && (
+        <div className="mt-6 grid gap-6 lg:grid-cols-2">
+          <div className="p4g-card">
+            <h2 className="mb-4 text-xl font-extrabold">相性が良い社員</h2>
+            {goodMatches.length > 0 ? (
+              goodMatches.map((person: MatchPerson, index: number) => (
+                <div
+                  key={person.userId || `${person.name}-${index}`}
+                  className="mb-3 rounded-xl border-2 border-black bg-green-50 p-4"
+                >
+                  <p>名前: {person.name || "不明"}</p>
+                  <p>診断結果: {person.mbti || "-"} × {person.businessCode || "-"}</p>
+                </div>
+              ))
+            ) : (
+              <p>データがありません</p>
+            )}
+          </div>
 
-        <div className="p4g-card">
-          <h2 className="mb-4 text-xl font-extrabold">衝突の可能性がある社員</h2>
-          {conflictMatches.length > 0 ? (
-            conflictMatches.map((person: MatchPerson, index: number) => (
-              <div
-                key={person.userId || `${person.name}-${index}`}
-                className="mb-3 rounded-xl border-2 border-black bg-red-50 p-4"
-              >
-                <p>
-                  名前:{" "}
-                  {normalizedRole === "employee"
-                    ? "非表示"
-                    : person.name || "不明"}
-                </p>
-                <p>診断結果: {person.mbti || "-"} × {person.businessCode || "-"}</p>
-              </div>
-            ))
-          ) : (
-            <p>データがありません</p>
-          )}
+          <div className="p4g-card">
+            <h2 className="mb-4 text-xl font-extrabold">衝突の可能性がある社員</h2>
+            {conflictMatches.length > 0 ? (
+              conflictMatches.map((person: MatchPerson, index: number) => (
+                <div
+                  key={person.userId || `${person.name}-${index}`}
+                  className="mb-3 rounded-xl border-2 border-black bg-red-50 p-4"
+                >
+                  <p>
+                    名前:{" "}
+                    {normalizedRole === "employee"
+                      ? "非表示"
+                      : person.name || "不明"}
+                  </p>
+                  <p>診断結果: {person.mbti || "-"} × {person.businessCode || "-"}</p>
+                </div>
+              ))
+            ) : (
+              <p>データがありません</p>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {normalizedRole !== "partner" && (
         <div className="mt-6 p4g-card">
