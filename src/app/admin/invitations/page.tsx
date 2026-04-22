@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  addDoc,
   collection,
   deleteDoc,
   doc,
@@ -10,12 +9,12 @@ import {
   getDocs,
   orderBy,
   query,
-  serverTimestamp,
   Timestamp,
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
+import { createInvitation } from "@/lib/invitations";
 import P4LoadingScreen from "@/components/P4LoadingScreen";
 import P4BottomNav from "@/components/P4BottomNav";
 import P4PageNav from "@/components/P4PageNav";
@@ -84,15 +83,6 @@ function formatDate(value: unknown): string {
   }
 
   return "-";
-}
-
-function makeInviteCode(length = 10) {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let result = "";
-  for (let i = 0; i < length; i += 1) {
-    result += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return result;
 }
 
 function PanelFrame({
@@ -180,9 +170,16 @@ export default function AdminInvitationsPage() {
     const nextItems: InvitationItem[] = snap.docs.map((item) => {
       const data = item.data() as Record<string, unknown>;
 
+      const inviteCode =
+        typeof data.token === "string"
+          ? data.token
+          : typeof data.code === "string"
+            ? data.code
+            : item.id;
+
       return {
         id: item.id,
-        code: typeof data.code === "string" ? data.code : item.id,
+        code: inviteCode,
         role: normalizeInvitationRole(data.role),
         departmentName:
           typeof data.departmentName === "string" ? data.departmentName : "-",
@@ -263,13 +260,11 @@ export default function AdminInvitationsPage() {
     try {
       setCreating(true);
 
-      await addDoc(collection(db, "invitations"), {
-        code: makeInviteCode(),
+      await createInvitation({
         role,
+        departmentId: "",
         departmentName: trimmedDepartmentName,
-        status: "active",
-        usedBy: "",
-        createdAt: serverTimestamp(),
+        issuedBy: currentUser?.uid || "",
       });
 
       setDepartmentName("");
@@ -308,8 +303,9 @@ export default function AdminInvitationsPage() {
     setNotice("");
 
     try {
-      await navigator.clipboard.writeText(code);
-      setNotice("招待コードをコピーしました。");
+      const inviteUrl = `${window.location.origin}/register/${code}`;
+      await navigator.clipboard.writeText(inviteUrl);
+      setNotice("招待URLをコピーしました。");
     } catch (e) {
       console.error("コピー失敗:", e);
       setError("コピーに失敗しました。");

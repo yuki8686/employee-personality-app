@@ -100,16 +100,10 @@ export async function findInvitationByToken(token: string) {
 
   const currentStatus = getInvitationStatusByDate(invitation);
 
-  if (currentStatus !== invitation.status) {
-    await updateDoc(doc(db, INVITATIONS_COLLECTION, inviteDoc.id), {
-      status: currentStatus,
-      updatedAtServer: serverTimestamp(),
-    });
-
-    invitation.status = currentStatus;
-  }
-
-  return invitation;
+  return {
+    ...invitation,
+    status: currentStatus,
+  };
 }
 
 export async function validateInvitationToken(token: string) {
@@ -136,14 +130,20 @@ export async function validateInvitationToken(token: string) {
     return {
       ok: false,
       reason: messageMap[status],
-      invitation,
+      invitation: {
+        ...invitation,
+        status,
+      },
     };
   }
 
   return {
     ok: true,
     reason: "",
-    invitation,
+    invitation: {
+      ...invitation,
+      status,
+    },
   };
 }
 

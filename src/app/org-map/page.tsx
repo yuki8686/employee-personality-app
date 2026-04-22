@@ -31,6 +31,7 @@ type UserProfile = {
   email?: string;
   role?: string;
   departmentName?: string;
+  partnerCompany?: string;
   status?: string;
 };
 
@@ -49,6 +50,7 @@ type MemberCard = {
   nameKana: string;
   role: string;
   departmentName: string;
+  partnerCompany: string;
   status: string;
   mbti: string;
   businessCode: string;
@@ -174,6 +176,7 @@ function toMemberCard(
     nameKana: data.nameKana || "",
     role: data.role || "-",
     departmentName: data.departmentName || "-",
+    partnerCompany: data.partnerCompany || "",
     status: (data.status || "active").toLowerCase(),
     mbti: mbtiCode,
     businessCode,
@@ -408,6 +411,10 @@ export default function OrgMapPage() {
 
                       <div className="mt-3.5 space-y-2.5 text-[13px] font-bold leading-6 text-white/85 md:mt-5 md:space-y-3 md:text-sm md:leading-7">
                         <p>部署: {member.departmentName || "-"}</p>
+
+                        {normalizeRole(member.role) === "partner" && (
+                          <p>所属会社: {member.partnerCompany || "-"}</p>
+                        )}
 
                         <div>
                           <p>MBTI: {member.mbti || "-"}</p>
