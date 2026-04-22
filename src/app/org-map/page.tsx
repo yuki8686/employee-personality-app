@@ -1,40 +1,220 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { auth, db } from "@/lib/firebase";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  documentId,
+  QueryDocumentSnapshot,
+} from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
-import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import AppShell from "@/components/AppShell";
+import Link from "next/link";
+import { auth, db } from "@/lib/firebase";
+import { getDiagnosticsForUi } from "@/lib/diagnostics/current";
+import {
+  getBusinessTypeName,
+  getMbtiTypeName,
+} from "@/lib/diagnosis/typeMasters";
+import P4LoadingScreen from "@/components/P4LoadingScreen";
+import P4BottomNav from "@/components/P4BottomNav";
+import P4PageNav from "@/components/P4PageNav";
 
-type UserItem = {
-  id: string;
-  uid?: string;
+type UserProfile = {
+  uid: string;
   name?: string;
+  nameKana?: string;
   email?: string;
   role?: string;
-  department?: string;
-  profileImageUrl?: string;
+  departmentName?: string;
+  status?: string;
 };
 
-type DiagnosticItem = {
+type DiagnosticData = {
   userId?: string;
   mbti?: string;
   businessCode?: string;
+  businessTypeName?: string;
   confidence?: number;
   diagnosedAt?: string;
 };
 
+type MemberCard = {
+  uid: string;
+  name: string;
+  nameKana: string;
+  role: string;
+  departmentName: string;
+  status: string;
+  mbti: string;
+  businessCode: string;
+  businessTypeName: string;
+  isSelf: boolean;
+};
+
+type DepartmentBlock = {
+  departmentName: string;
+  members: MemberCard[];
+};
+
+function normalizeRole(value?: string) {
+  return (value || "").trim().toLowerCase();
+}
+
+function canAccessOrgMap(role?: string) {
+  const normalized = normalizeRole(role);
+  return (
+    normalized === "admin" ||
+    normalized === "manager" ||
+    normalized === "employee"
+  );
+}
+
+function canOpenOtherProfile(role?: string) {
+  const normalized = normalizeRole(role);
+  return normalized === "admin" || normalized === "manager";
+}
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const result: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    result.push(items.slice(i, i + size));
+  }
+  return result;
+}
+
+function statusLabel(status?: string, isSelf?: boolean) {
+  if (isSelf) return "YOU";
+  const normalized = (status || "").toLowerCase();
+  if (normalized === "active") return "active";
+  if (normalized === "pending") return "pending";
+  if (normalized === "disabled") return "disabled";
+  return "-";
+}
+
+function statusBadgeClass(status?: string, isSelf?: boolean) {
+  if (isSelf) return "bg-[#f3c400] text-black";
+  const normalized = (status || "").toLowerCase();
+  if (normalized === "active") return "bg-[#f3c400] text-black";
+  if (normalized === "pending") return "bg-[#fff2a6] text-black";
+  if (normalized === "disabled") return "bg-[#ffd0d0] text-black";
+  return "bg-white text-black";
+}
+
+async function loadDiagnosticsByUserIds(
+  userIds: string[]
+): Promise<Map<string, DiagnosticData>> {
+  const diagnosticsMap = new Map<string, DiagnosticData>();
+
+  if (userIds.length === 0) return diagnosticsMap;
+
+  const chunks = chunkArray(userIds, 10);
+
+  for (const ids of chunks) {
+    const q = query(
+      collection(db, "diagnostics_current"),
+      where(documentId(), "in", ids)
+    );
+    const snap = await getDocs(q);
+
+    snap.forEach((item) => {
+      const data = item.data() as {
+        userId?: string;
+        mbti?: {
+          type?: string;
+          confidence?: number;
+        };
+        businessPersonality?: {
+          primaryType?: string;
+          typeName?: string;
+          confidence?: number;
+        };
+        diagnosedAt?: string;
+      };
+
+      const mbtiCode = data.mbti?.type || "-";
+      const businessCode = data.businessPersonality?.primaryType || "-";
+
+      diagnosticsMap.set(item.id, {
+        userId: data.userId || item.id,
+        mbti: mbtiCode,
+        businessCode,
+        businessTypeName: getBusinessTypeName(businessCode),
+        confidence:
+          typeof data.businessPersonality?.confidence === "number"
+            ? data.businessPersonality.confidence
+            : typeof data.mbti?.confidence === "number"
+              ? data.mbti.confidence
+              : 0,
+        diagnosedAt: data.diagnosedAt || "",
+      });
+    });
+  }
+
+  return diagnosticsMap;
+}
+
+function toMemberCard(
+  item: QueryDocumentSnapshot,
+  diagnosticsMap: Map<string, DiagnosticData>,
+  selfUid: string
+): MemberCard {
+  const data = item.data() as Omit<UserProfile, "uid">;
+  const diagnostic = diagnosticsMap.get(item.id);
+  const mbtiCode = diagnostic?.mbti || "-";
+  const businessCode = diagnostic?.businessCode || "-";
+
+  return {
+    uid: item.id,
+    name: data.name || "名称未設定",
+    nameKana: data.nameKana || "",
+    role: data.role || "-",
+    departmentName: data.departmentName || "-",
+    status: (data.status || "active").toLowerCase(),
+    mbti: mbtiCode,
+    businessCode,
+    businessTypeName: getBusinessTypeName(businessCode),
+    isSelf: item.id === selfUid,
+  };
+}
+
+function PanelFrame({
+  title,
+  children,
+  className = "",
+}: {
+  title?: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      className={`relative overflow-hidden rounded-[22px] border-[3px] border-black bg-[#171717] shadow-[0_7px_0_#000] md:rounded-[28px] md:border-[4px] md:shadow-[0_10px_0_#000] ${className}`}
+    >
+      <div className="absolute left-0 top-0 h-2.5 w-full bg-[#f3c400] md:h-3" />
+      <div className="absolute right-3 top-3 h-3.5 w-3.5 rotate-45 border-2 border-black bg-[#ffe46a] md:right-4 md:top-4 md:h-4 md:w-4" />
+      <div className="relative p-3.5 pt-5 md:p-5 md:pt-7">
+        {title && (
+          <div className="mb-3 inline-flex rounded-full border-[3px] border-black bg-[#f3c400] px-2.5 py-1 text-[10px] font-black tracking-[0.12em] text-black shadow-[0_3px_0_#000] md:mb-4 md:px-3 md:text-xs md:tracking-normal md:shadow-[0_4px_0_#000]">
+            {title}
+          </div>
+        )}
+        {children}
+      </div>
+    </section>
+  );
+}
+
 export default function OrgMapPage() {
   const router = useRouter();
 
-  const [currentRole, setCurrentRole] = useState("");
-  const [currentDepartment, setCurrentDepartment] = useState("");
-  const [users, setUsers] = useState<UserItem[]>([]);
-  const [diagnosticsMap, setDiagnosticsMap] = useState<Record<string, DiagnosticItem>>({});
-  const [searchText, setSearchText] = useState("");
-  const [departmentFilter, setDepartmentFilter] = useState("");
   const [loading, setLoading] = useState(true);
+  const [me, setMe] = useState<UserProfile | null>(null);
+  const [members, setMembers] = useState<MemberCard[]>([]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -44,42 +224,68 @@ export default function OrgMapPage() {
       }
 
       try {
-        const meDoc = await getDoc(doc(db, "users", user.uid));
-        if (!meDoc.exists()) {
-          alert("ユーザー情報が存在しません");
+        const myUserRef = doc(db, "users", user.uid);
+        const myUserSnap = await getDoc(myUserRef);
+
+        if (!myUserSnap.exists()) {
+          router.push("/login");
+          return;
+        }
+
+        const myData = myUserSnap.data() as Omit<UserProfile, "uid">;
+        const nextMe: UserProfile = {
+          ...myData,
+          uid: user.uid,
+        };
+        setMe(nextMe);
+
+        const myDiagnostic = await getDiagnosticsForUi(user.uid);
+        const status = (nextMe.status || "active").toLowerCase();
+
+        if (status === "pending" || !myDiagnostic) {
+          router.push("/register/wizard");
+          return;
+        }
+
+        const myRole = normalizeRole(nextMe.role);
+        if (!canAccessOrgMap(myRole)) {
           router.push("/home");
           return;
         }
 
-        const meData = meDoc.data();
-        const role = (meData.role || "").trim().toLowerCase();
-        const department = meData.department || "";
+        const myDepartment = nextMe.departmentName || "";
 
-        setCurrentRole(role);
-        setCurrentDepartment(department);
-
-        if (role !== "admin" && role !== "manager") {
-          setLoading(false);
-          return;
+        let usersSnap;
+        if (myRole === "admin") {
+          usersSnap = await getDocs(collection(db, "users"));
+        } else if (myRole === "manager") {
+          usersSnap = await getDocs(
+            query(
+              collection(db, "users"),
+              where("departmentName", "==", myDepartment)
+            )
+          );
+        } else {
+          usersSnap = await getDocs(collection(db, "users"));
         }
 
-        const usersSnapshot = await getDocs(collection(db, "users"));
-        const usersList = usersSnapshot.docs.map((docItem) => ({
-          id: docItem.id,
-          ...(docItem.data() as Omit<UserItem, "id">),
-        }));
-        setUsers(usersList);
+        const docs = usersSnap.docs;
+        const diagnosticsMap = await loadDiagnosticsByUserIds(
+          docs.map((item) => item.id)
+        );
 
-        const diagnosticsSnapshot = await getDocs(collection(db, "diagnostics"));
-        const nextMap: Record<string, DiagnosticItem> = {};
+        const nextMembers = docs
+          .map((item) => toMemberCard(item, diagnosticsMap, user.uid))
+          .sort((a, b) => {
+            if (a.departmentName !== b.departmentName) {
+              return a.departmentName.localeCompare(b.departmentName, "ja");
+            }
+            return a.name.localeCompare(b.name, "ja");
+          });
 
-        diagnosticsSnapshot.docs.forEach((docItem) => {
-          nextMap[docItem.id] = docItem.data() as DiagnosticItem;
-        });
-
-        setDiagnosticsMap(nextMap);
+        setMembers(nextMembers);
       } catch (error) {
-        console.error("組織マップエラー:", error);
+        console.error("org-map 読み込み失敗:", error);
       } finally {
         setLoading(false);
       }
@@ -88,147 +294,156 @@ export default function OrgMapPage() {
     return () => unsubscribe();
   }, [router]);
 
-  const departments = useMemo(() => {
-    const list = users
-      .map((u) => u.department || "")
-      .filter((v) => v !== "");
-    return Array.from(new Set(list));
-  }, [users]);
+  const departmentBlocks = useMemo<DepartmentBlock[]>(() => {
+    const map = new Map<string, MemberCard[]>();
 
-  const filteredUsers = useMemo(() => {
-    let list = [...users];
+    members.forEach((member) => {
+      const key = member.departmentName || "未設定";
+      if (!map.has(key)) {
+        map.set(key, []);
+      }
+      map.get(key)?.push(member);
+    });
 
-    if (currentRole === "manager") {
-      list = list.filter((u) => u.department === currentDepartment);
-    }
+    return Array.from(map.entries())
+      .map(([departmentName, membersInDept]) => ({
+        departmentName,
+        members: membersInDept,
+      }))
+      .sort((a, b) => a.departmentName.localeCompare(b.departmentName, "ja"));
+  }, [members]);
 
-    if (searchText.trim()) {
-      const keyword = searchText.toLowerCase();
-      list = list.filter((u) => {
-        const name = (u.name || "").toLowerCase();
-        const email = (u.email || "").toLowerCase();
-        return name.includes(keyword) || email.includes(keyword);
-      });
-    }
-
-    if (departmentFilter) {
-      list = list.filter((u) => u.department === departmentFilter);
-    }
-
-    return list;
-  }, [users, currentRole, currentDepartment, searchText, departmentFilter]);
+  const normalizedRole = normalizeRole(me?.role);
 
   if (loading) {
     return (
-      <AppShell title="組織マップ">
-        <div className="p4g-card">読み込み中...</div>
-      </AppShell>
-    );
-  }
-
-  if (currentRole !== "admin" && currentRole !== "manager") {
-    return (
-      <AppShell title="組織マップ" role={currentRole}>
-        <div className="p4g-card">
-          この画面は Admin / Manager のみ利用できます
-        </div>
-      </AppShell>
+      <P4LoadingScreen
+        title="ORG MAP LOADING"
+        subtitle="組織マップを読み込み中..."
+      />
     );
   }
 
   return (
-    <AppShell title="組織マップ" role={currentRole}>
-      <div className="p4g-card mb-6">
-        <div className="grid md:grid-cols-3 gap-4 mb-4">
-          <div>
-            <label className="p4g-label">検索</label>
-            <input
-              type="text"
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              placeholder="名前 or メール"
-              className="p4g-input"
-            />
-          </div>
-
-          <div>
-            <label className="p4g-label">部署</label>
-            <select
-              value={departmentFilter}
-              onChange={(e) => setDepartmentFilter(e.target.value)}
-              className="p4g-select"
-            >
-              <option value="">すべて</option>
-              {departments.map((d) => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex items-end">
-            <button
-              onClick={() => router.push("/home")}
-              className="p4g-button p4g-button-dark"
-            >
-              ホームへ戻る
-            </button>
-          </div>
-        </div>
-
-        <p className="text-sm text-gray-600">表示件数: {filteredUsers.length}</p>
-      </div>
-
-      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filteredUsers.map((user) => {
-          const diag = diagnosticsMap[user.id];
-
-          return (
-            <div key={user.id} className="p4g-card">
-              <div className="flex gap-4 mb-4 items-center">
-                {user.profileImageUrl ? (
-                  <img
-                    src={user.profileImageUrl}
-                    className="w-16 h-16 rounded-full object-cover border-2 border-black"
-                    alt="profile"
-                  />
-                ) : (
-                  <div className="w-16 h-16 rounded-full bg-gray-100 border-2 border-black flex items-center justify-center text-xs">
-                    画像なし
-                  </div>
-                )}
-
-                <div>
-                  <h2 className="font-extrabold">{user.name || "未設定"}</h2>
-                  <p className="text-sm text-gray-600">{user.email || "-"}</p>
+    <>
+      <main className="p4g-shell min-h-screen px-3 py-3.5 pb-24 text-white md:px-4 md:py-6 md:pb-6">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-3.5 md:gap-5">
+          <PanelFrame>
+            <div className="flex flex-col gap-3 md:gap-4 xl:flex-row xl:items-end xl:justify-between">
+              <div className="min-w-0">
+                <div className="inline-flex rounded-full border-[3px] border-black bg-[#f3c400] px-2.5 py-1 text-[10px] font-black tracking-[0.12em] text-black shadow-[0_3px_0_#000] md:px-3 md:text-xs md:tracking-[0.18em] md:shadow-[0_4px_0_#000]">
+                  ORG MAP
                 </div>
+                <h1 className="mt-2.5 text-[24px] font-black leading-tight md:mt-4 md:text-4xl">
+                  組織マップ
+                </h1>
+                <p className="mt-2 max-w-3xl text-[12px] font-bold leading-5 text-white/80 md:text-sm md:leading-normal">
+                  権限に応じた範囲のメンバー構成を確認できます。
+                </p>
               </div>
 
-              <div className="text-sm space-y-1">
-                <p>部署: {user.department || "-"}</p>
-                <p>権限: {user.role || "-"}</p>
-                <p>MBTI: {diag?.mbti || "-"}</p>
-                <p>ビジネス人格: {diag?.businessCode || "-"}</p>
-                <p>信頼度: {typeof diag?.confidence === "number" ? `${diag.confidence}%` : "-"}</p>
-              </div>
-
-              <div className="mt-4">
-                <button
-                  onClick={() => router.push(`/profile/${user.id}`)}
-                  className="p4g-button p4g-button-yellow"
-                >
-                  詳細を見る
-                </button>
+              <div className="hidden xl:flex xl:flex-col xl:items-end xl:gap-2">
+                <P4PageNav role={normalizedRole} />
               </div>
             </div>
-          );
-        })}
-      </div>
+          </PanelFrame>
 
-      {filteredUsers.length === 0 && (
-        <div className="mt-6 p4g-card text-center">
-          該当する社員がいません
+          <PanelFrame title="PAGE MENU" className="hidden md:block xl:hidden">
+            <P4PageNav role={normalizedRole} />
+          </PanelFrame>
+
+          {departmentBlocks.length === 0 ? (
+            <PanelFrame title="部署ブロック">
+              <div className="rounded-[16px] border-[4px] border-black bg-[#111111] p-3.5 shadow-[0_5px_0_#000] md:rounded-[22px] md:p-5 md:shadow-[0_8px_0_#000]">
+                <p className="text-[13px] font-bold leading-6 text-white/80 md:text-sm">
+                  表示できるメンバーがいません。
+                </p>
+              </div>
+            </PanelFrame>
+          ) : (
+            departmentBlocks.map((block) => (
+              <PanelFrame key={block.departmentName} title="部署ブロック">
+                <div className="mb-3.5 flex items-center justify-between gap-3 md:mb-5 md:gap-4">
+                  <div className="min-w-0">
+                    <h2 className="text-[22px] font-black leading-tight md:text-3xl">
+                      {block.departmentName || "-"}
+                    </h2>
+                  </div>
+
+                  <div className="shrink-0 rounded-full border-[3px] border-black bg-[#f3c400] px-3 py-1.5 text-[13px] font-black text-black shadow-[0_3px_0_#000] md:px-4 md:py-2 md:text-base md:shadow-[0_4px_0_#000]">
+                    {block.members.length}名
+                  </div>
+                </div>
+
+                <div className="grid gap-3 md:gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {block.members.map((member) => (
+                    <div
+                      key={member.uid}
+                      className="rounded-[16px] border-[4px] border-black bg-[#111111] p-3.5 shadow-[0_5px_0_#000] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_12px_0_#000] md:rounded-[24px] md:p-5 md:shadow-[0_8px_0_#000]"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[18px] font-black leading-tight md:text-2xl">
+                            {member.name}
+                          </p>
+                          {member.nameKana && (
+                            <p className="mt-1 text-[12px] font-black tracking-[0.04em] text-[#ffe46a] md:text-sm md:tracking-[0.08em]">
+                              {member.nameKana}
+                            </p>
+                          )}
+                          <p className="mt-1 text-[12px] font-bold leading-5 text-white/70 md:text-sm md:leading-6">
+                            {member.role}
+                          </p>
+                        </div>
+
+                        <div
+                          className={`shrink-0 rounded-full border-[3px] border-black px-3 py-1 text-[11px] font-black shadow-[0_3px_0_#000] md:px-4 md:py-2 md:text-sm md:shadow-[0_4px_0_#000] ${statusBadgeClass(
+                            member.status,
+                            member.isSelf
+                          )}`}
+                        >
+                          {statusLabel(member.status, member.isSelf)}
+                        </div>
+                      </div>
+
+                      <div className="mt-3.5 space-y-2.5 text-[13px] font-bold leading-6 text-white/85 md:mt-5 md:space-y-3 md:text-sm md:leading-7">
+                        <p>部署: {member.departmentName || "-"}</p>
+
+                        <div>
+                          <p>MBTI: {member.mbti || "-"}</p>
+                          <p className="mt-0.5 text-[11px] leading-5 text-white/70 md:mt-1 md:text-xs">
+                            {getMbtiTypeName(member.mbti)}
+                          </p>
+                        </div>
+
+                        <div>
+                          <p>ビジネス人格: {member.businessCode || "-"}</p>
+                          <p className="mt-0.5 text-[11px] leading-5 text-white/70 md:mt-1 md:text-xs">
+                            {getBusinessTypeName(member.businessCode)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {!member.isSelf && canOpenOtherProfile(normalizedRole) && (
+                        <div className="mt-4 md:mt-5">
+                          <Link
+                            href={`/profile/${member.uid}`}
+                            className="inline-flex rounded-[12px] border-[3px] border-black bg-[#111111] px-4 py-2 text-[12px] font-black text-white shadow-[0_5px_0_#000] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#1d1d1d] hover:shadow-[0_8px_0_#000] active:translate-y-0 active:shadow-[0_3px_0_#000] md:rounded-[16px] md:text-sm md:shadow-[0_6px_0_#000]"
+                          >
+                            詳細を見る
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </PanelFrame>
+            ))
+          )}
         </div>
-      )}
-    </AppShell>
+      </main>
+
+      <P4BottomNav role={normalizedRole} />
+    </>
   );
 }

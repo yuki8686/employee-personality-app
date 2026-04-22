@@ -9,52 +9,60 @@ type Props = {
   children: ReactNode;
 };
 
+type NavItem = {
+  label: string;
+  shortLabel: string;
+  path: string;
+};
+
 export default function AppShell({ title, role, children }: Props) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const navItems = useMemo(() => {
-    const normalizedRole = (role || "").trim().toLowerCase();
+  const normalizedRole = (role || "").trim().toLowerCase();
 
-    const base = [
-      { label: "ホーム", path: "/home" },
-      { label: "プロフィール", path: "/profile" },
+  const navItems = useMemo<NavItem[]>(() => {
+    const base: NavItem[] = [
+      { label: "ホーム", shortLabel: "ホーム", path: "/home" },
+      { label: "プロフィール", shortLabel: "プロフ", path: "/profile" },
     ];
 
     if (normalizedRole === "admin" || normalizedRole === "manager") {
       return [
         ...base,
-        { label: "組織マップ", path: "/org-map" },
-        { label: "フィードバック", path: "/feedback" },
+        { label: "組織マップ", shortLabel: "マップ", path: "/org-map" },
+        { label: "フィードバック", shortLabel: "入力", path: "/feedback" },
       ];
     }
 
     return base;
-  }, [role]);
+  }, [normalizedRole]);
 
   return (
-    <main className="min-h-screen bg-[#f4eed0] p-3 sm:p-4 md:p-6">
-      <div className="mx-auto max-w-6xl">
-        <div className="overflow-hidden rounded-[28px] border-[3px] border-black bg-[#f7f2dc] shadow-[0_8px_0_rgba(0,0,0,0.12)]">
-          <header className="border-b-[3px] border-black bg-gradient-to-r from-[#f6d313] via-[#f3de68] to-[#efe7b3] px-4 py-5 sm:px-6 md:px-8">
-            <div className="flex flex-col gap-4">
-              <div>
-                <p className="text-sm font-bold text-gray-700 sm:text-base">
-                  Employee Personality App
-                </p>
-                <h1 className="mt-1 text-3xl font-black tracking-tight sm:text-4xl">
-                  {title}
-                </h1>
-                {role && (
-                  <div className="mt-3">
-                    <span className="inline-block rounded-full border-[3px] border-black bg-white px-4 py-2 text-sm font-extrabold shadow-[0_4px_0_rgba(0,0,0,0.12)]">
-                      権限: {role}
-                    </span>
-                  </div>
-                )}
+    <main className="p4g-shell px-0 py-0 md:px-4 md:py-4">
+      <div className="mx-auto max-w-7xl">
+        <div className="p4g-frame">
+          <header className="p4g-topband px-4 py-3 sm:px-5 sm:py-4">
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2">
+                <div className="p4g-brand-ribbon">
+                  <span>Regal Cast Database</span>
+                </div>
+
+                <div>
+                  <p className="p4g-brand-sub">PERSONALITY DIAGNOSTIC SYSTEM</p>
+                  <h1 className="mt-1 text-[2rem] font-black tracking-tight text-white sm:text-[3.2rem]">
+                    {title}
+                  </h1>
+                  {role && (
+                    <div className="mt-3">
+                      <span className="p4g-pill">ROLE: {role}</span>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <nav className="flex flex-wrap gap-3">
+              <nav className="hidden flex-wrap gap-3 md:flex">
                 {navItems.map((item) => {
                   const active =
                     pathname === item.path ||
@@ -65,10 +73,8 @@ export default function AppShell({ title, role, children }: Props) {
                       key={item.path}
                       type="button"
                       onClick={() => router.push(item.path)}
-                      className={`min-w-[110px] rounded-[18px] border-[3px] border-black px-5 py-3 text-lg font-black shadow-[0_4px_0_rgba(0,0,0,0.14)] transition ${
-                        active
-                          ? "bg-[#111111] text-white"
-                          : "bg-gradient-to-b from-[#ffe75b] to-[#f4cb14] text-black"
+                      className={`p4g-nav-btn ${
+                        active ? "p4g-nav-btn-active" : "p4g-nav-btn-idle"
                       }`}
                     >
                       {item.label}
@@ -79,9 +85,34 @@ export default function AppShell({ title, role, children }: Props) {
             </div>
           </header>
 
-          <section className="bg-[#f7f2dc] px-3 py-4 sm:px-4 sm:py-5 md:px-6 md:py-6">
+          <section className="p4g-content-padding px-4 py-4 sm:px-5 sm:py-5 md:px-6 md:py-5">
             {children}
           </section>
+        </div>
+      </div>
+
+      <div className="md:hidden">
+        <div className="p4g-mobile-nav">
+          <div className="p4g-mobile-nav-grid">
+            {navItems.map((item) => {
+              const active =
+                pathname === item.path ||
+                (item.path === "/profile" && pathname.startsWith("/profile"));
+
+              return (
+                <button
+                  key={item.path}
+                  type="button"
+                  onClick={() => router.push(item.path)}
+                  className={`p4g-mobile-nav-btn ${
+                    active ? "p4g-mobile-nav-btn-active" : ""
+                  }`}
+                >
+                  {item.shortLabel}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     </main>

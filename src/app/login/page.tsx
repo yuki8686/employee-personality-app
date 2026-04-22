@@ -1,96 +1,99 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-} from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { useState } from "react";
+import { signInWithEmailAndPassword } from "firebase/auth";
 import { useRouter } from "next/navigation";
+import { auth } from "@/lib/firebase";
 
 export default function LoginPage() {
   const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [checkingAuth, setCheckingAuth] = useState(true);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        router.push("/home");
-        return;
-      }
-      setCheckingAuth(false);
-    });
-
-    return () => unsubscribe();
-  }, [router]);
 
   const handleLogin = async () => {
+    setError("");
+
+    if (!email || !password) {
+      setError("メールアドレスとパスワードを入力してください。");
+      return;
+    }
+
+    setLoading(true);
     try {
-      setLoading(true);
-      setError("");
       await signInWithEmailAndPassword(auth, email, password);
       router.push("/home");
-    } catch (err) {
-      console.error(err);
-      setError("ログインに失敗しました。メールアドレスかパスワードを確認してください。");
+    } catch (e) {
+      console.error(e);
+      setError("ログインに失敗しました。");
     } finally {
       setLoading(false);
     }
   };
 
-  if (checkingAuth) {
-    return (
-      <main className="min-h-screen flex items-center justify-center p-6">
-        <div className="w-full max-w-md p4g-panel p-6">
-          <p className="text-lg font-bold">認証状態を確認中...</p>
-        </div>
-      </main>
-    );
-  }
+  const handleMoveResetPassword = () => {
+    router.push("/reset-password");
+  };
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-md p4g-panel p-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold">ログイン</h1>
+    <main className="p4g-shell flex min-h-screen items-center justify-center px-4 text-white">
+      <div className="w-full max-w-md">
+        <div className="rounded-[28px] border-[4px] border-black bg-[#171717] p-6 shadow-[0_10px_0_#000]">
+          <div className="text-center">
+            <div className="inline-block rounded-full border-[3px] border-black bg-[#f3c400] px-4 py-1 text-xs font-black text-black shadow-[0_4px_0_#000]">
+              LOGIN
+            </div>
+
+            <h1 className="mt-4 text-3xl font-black">アカウントにログイン</h1>
+
+            <p className="mt-2 text-sm text-white/70">
+              メールアドレスとパスワードを入力してください
+            </p>
+          </div>
+
+          <div className="mt-6 space-y-4">
+            <input
+              type="email"
+              placeholder="メールアドレス"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-[16px] border-[3px] border-black bg-[#f6f0d8] px-4 py-3 text-sm font-bold text-black outline-none"
+            />
+
+            <input
+              type="password"
+              placeholder="パスワード"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-[16px] border-[3px] border-black bg-[#f6f0d8] px-4 py-3 text-sm font-bold text-black outline-none"
+            />
+
+            {error && (
+              <div className="rounded-[16px] border-[3px] border-black bg-[#ffd0d0] px-4 py-3 text-sm font-black text-[#7b1111]">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={handleLogin}
+              disabled={loading}
+              className="w-full rounded-[16px] border-[3px] border-black bg-[#f3c400] px-5 py-3 text-sm font-black text-black shadow-[0_6px_0_#000] transition-all hover:-translate-y-0.5 hover:bg-[#ffe15a] hover:shadow-[0_8px_0_#000] disabled:opacity-50"
+            >
+              {loading ? "ログイン中..." : "ログイン"}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleMoveResetPassword}
+              className="w-full rounded-[16px] border-[3px] border-black bg-[#111111] px-5 py-3 text-sm font-black text-white shadow-[0_6px_0_#000] transition-all hover:-translate-y-0.5 hover:bg-[#1d1d1d] hover:shadow-[0_8px_0_#000]"
+            >
+              パスワードを忘れた場合
+            </button>
+          </div>
         </div>
-
-        <div className="mb-4">
-          <label className="p4g-label">メールアドレス</label>
-          <input
-            className="p4g-input"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-
-        <div className="mb-4">
-          <label className="p4g-label">パスワード</label>
-          <input
-            className="p4g-input"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
-
-        {error && (
-          <p className="mb-4 text-sm font-bold text-red-600">{error}</p>
-        )}
-
-        <button
-          type="button"
-          onClick={handleLogin}
-          disabled={loading}
-          className="p4g-button p4g-button-yellow w-full disabled:opacity-50"
-        >
-          {loading ? "ログイン中..." : "ログイン"}
-        </button>
       </div>
     </main>
   );
