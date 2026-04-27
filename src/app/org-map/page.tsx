@@ -76,9 +76,27 @@ function canAccessOrgMap(role?: string) {
   );
 }
 
-function canOpenOtherProfile(role?: string) {
-  const normalized = normalizeRole(role);
-  return normalized === "admin" || normalized === "manager";
+function canOpenOtherProfile(params: {
+  role?: string;
+  myDepartmentName?: string;
+  targetDepartmentName?: string;
+}) {
+  const normalized = normalizeRole(params.role);
+
+  if (normalized === "admin") return true;
+
+  if (normalized === "manager") {
+    const myDepartmentName = (params.myDepartmentName || "").trim();
+    const targetDepartmentName = (params.targetDepartmentName || "").trim();
+
+    return (
+      myDepartmentName !== "" &&
+      targetDepartmentName !== "" &&
+      myDepartmentName === targetDepartmentName
+    );
+  }
+
+  return false;
 }
 
 function chunkArray<T>(items: T[], size: number): T[][] {
@@ -256,21 +274,7 @@ export default function OrgMapPage() {
           return;
         }
 
-        const myDepartment = nextMe.departmentName || "";
-
-        let usersSnap;
-        if (myRole === "admin") {
-          usersSnap = await getDocs(collection(db, "users"));
-        } else if (myRole === "manager") {
-          usersSnap = await getDocs(
-            query(
-              collection(db, "users"),
-              where("departmentName", "==", myDepartment)
-            )
-          );
-        } else {
-          usersSnap = await getDocs(collection(db, "users"));
-        }
+        const usersSnap = await getDocs(collection(db, "users"));
 
         const docs = usersSnap.docs;
         const diagnosticsMap = await loadDiagnosticsByUserIds(
@@ -431,16 +435,21 @@ export default function OrgMapPage() {
                         </div>
                       </div>
 
-                      {!member.isSelf && canOpenOtherProfile(normalizedRole) && (
-                        <div className="mt-4 md:mt-5">
-                          <Link
-                            href={`/profile/${member.uid}`}
-                            className="inline-flex rounded-[12px] border-[3px] border-black bg-[#111111] px-4 py-2 text-[12px] font-black text-white shadow-[0_5px_0_#000] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#1d1d1d] hover:shadow-[0_8px_0_#000] active:translate-y-0 active:shadow-[0_3px_0_#000] md:rounded-[16px] md:text-sm md:shadow-[0_6px_0_#000]"
-                          >
-                            詳細を見る
-                          </Link>
-                        </div>
-                      )}
+                      {!member.isSelf &&
+                        canOpenOtherProfile({
+                          role: normalizedRole,
+                          myDepartmentName: me?.departmentName,
+                          targetDepartmentName: member.departmentName,
+                        }) && (
+                          <div className="mt-4 md:mt-5">
+                            <Link
+                              href={`/profile/${member.uid}`}
+                              className="inline-flex rounded-[12px] border-[3px] border-black bg-[#111111] px-4 py-2 text-[12px] font-black text-white shadow-[0_5px_0_#000] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#1d1d1d] hover:shadow-[0_8px_0_#000] active:translate-y-0 active:shadow-[0_3px_0_#000] md:rounded-[16px] md:text-sm md:shadow-[0_6px_0_#000]"
+                            >
+                              詳細を見る
+                            </Link>
+                          </div>
+                        )}
                     </div>
                   ))}
                 </div>

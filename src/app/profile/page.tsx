@@ -39,6 +39,10 @@ type UserProfile = {
   status?: string;
   profileImageUrl?: string;
   lastDiagnosedAt?: string | null;
+  hobbies?: string;
+  birthplace?: string;
+  birthday?: string;
+  bio?: string;
 };
 
 type AxisScore = {
@@ -223,17 +227,102 @@ function getStatusLabel(status?: string) {
   return "-";
 }
 
-function getCategoryBadgeClass(category: CompatibilityCard["category"]) {
-  if (category === "good") return "bg-[#fff8d9] text-black";
-  if (category === "complementary") return "bg-[#d9f7ff] text-black";
-  return "bg-[#ffd0d0] text-black";
+function formatPersonalValue(value?: string | number | null): string {
+  if (typeof value === "number") return String(value);
+  if (typeof value === "string" && value.trim() !== "") return value.trim();
+  return "未設定";
 }
+
+function parseBirthday(value?: string | null): {
+  year: number;
+  month: number;
+  day: number;
+} | null {
+  if (!value) return null;
+
+  const parts = value.split("-");
+  if (parts.length !== 3) return null;
+
+  const year = Number(parts[0]);
+  const month = Number(parts[1]);
+  const day = Number(parts[2]);
+
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day)
+  ) {
+    return null;
+  }
+
+  const date = new Date(year, month - 1, day);
+
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() + 1 !== month ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return { year, month, day };
+}
+
+function formatBirthdayMonthDay(value?: string | null): string {
+  const birthday = parseBirthday(value);
+  if (!birthday) return "未設定";
+
+  return `${String(birthday.month).padStart(2, "0")}月${String(
+    birthday.day
+  ).padStart(2, "0")}日`;
+}
+
+function calculateAgeFromBirthday(value?: string | null): string {
+  const birthday = parseBirthday(value);
+  if (!birthday) return "未設定";
+
+  const today = new Date();
+  let age = today.getFullYear() - birthday.year;
+
+  const hasBirthdayPassedThisYear =
+    today.getMonth() + 1 > birthday.month ||
+    (today.getMonth() + 1 === birthday.month &&
+      today.getDate() >= birthday.day);
+
+  if (!hasBirthdayPassedThisYear) {
+    age -= 1;
+  }
+
+  if (age < 0 || age > 120) return "未設定";
+
+  return `${age}歳`;
+}
+
+function formatBirthdayWithAge(value?: string | null): string {
+  const birthdayText = formatBirthdayMonthDay(value);
+  const ageText = calculateAgeFromBirthday(value);
+
+  if (birthdayText === "未設定" || ageText === "未設定") {
+    return "未設定";
+  }
+
+  return `${birthdayText} / ${ageText}`;
+}
+
 
 function buildCompatibilityLabel(category?: string, label?: string) {
   if (label && label.trim() !== "") return label;
   if (category === "good") return "良好関係";
   if (category === "complementary") return "補完関係";
   return "自分を広げてくれる相手";
+}
+
+function replaceCompatibilityGuideText(value: string): string {
+  return value
+    .split("ぶつかりやすい相手")
+    .join("自分を広げてくれる相手")
+    .split("ぶつかりやすい")
+    .join("自分を広げてくれる");
 }
 
 function mapEngineLabelToCategory(
@@ -978,20 +1067,18 @@ function AxisPanel({
 }
 
 function CompatibilityListPanel({
-  title,
   headline,
   items,
   emptyMessage,
   showScore,
 }: {
-  title: string;
   headline: string;
   items: CompatibilityCard[];
   emptyMessage: string;
   showScore: boolean;
 }) {
   return (
-    <PanelFrame title={title}>
+    <PanelFrame>
       <h2 className="text-lg font-black leading-tight text-[#ffe46a] md:text-2xl">
         {headline}
       </h2>
@@ -1042,14 +1129,6 @@ function CompatibilityListPanel({
                 </p>
               </div>
             </div>
-
-            <p
-              className={`mt-3 inline-flex rounded-full border-[3px] border-black px-2.5 py-1 text-[10px] font-black ${getCategoryBadgeClass(
-                item.category
-              )} md:px-3 md:text-xs`}
-            >
-              {item.categoryLabel}
-            </p>
 
             <p className="mt-3 text-[13px] font-bold leading-6 text-white/85 md:mt-4 md:text-sm md:leading-7">
               {item.summary}
@@ -1393,6 +1472,16 @@ export default function ProfilePage() {
                 <p className="mt-2 max-w-3xl text-[12px] font-bold leading-5 text-white/80 md:text-sm md:leading-normal">
                   診断結果、信頼度、フィードバック、相性情報を確認できます。
                 </p>
+
+                <div className="mt-3 flex flex-wrap gap-2.5 md:mt-4 md:gap-3">
+                  <Link
+                    href="/profile/edit"
+                    className="group relative overflow-hidden rounded-[12px] border-[3px] border-black bg-[#f3c400] px-4 py-2 text-[12px] font-black text-black shadow-[0_5px_0_#000] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#ffe15a] hover:shadow-[0_8px_0_#000] active:translate-y-0 active:shadow-[0_3px_0_#000] md:rounded-[16px] md:text-sm md:shadow-[0_6px_0_#000]"
+                  >
+                    <span className="relative z-10">プロフィール編集</span>
+                    <span className="absolute inset-y-0 left-0 w-2 bg-white/15 transition-all duration-200 group-hover:w-4" />
+                  </Link>
+                </div>
               </div>
 
               <div className="hidden md:flex md:flex-col md:gap-3">
@@ -1446,6 +1535,43 @@ export default function ProfilePage() {
                     {formatDisplayDate(
                       diagnostic?.diagnosedAt || profile?.lastDiagnosedAt
                     )}
+                  </p>
+                }
+              />
+            </div>
+          </PanelFrame>
+
+          <PanelFrame title="パーソナル情報">
+            <div className="grid gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <StatCard
+                label="誕生日 / 年齢"
+                value={
+                  <p className="text-[14px] font-black leading-6 text-white/90 md:text-base md:leading-7">
+                    {formatBirthdayWithAge(profile?.birthday)}
+                  </p>
+                }
+              />
+              <StatCard
+                label="出身地"
+                value={
+                  <p className="text-[14px] font-black leading-6 text-white/90 md:text-base md:leading-7">
+                    {formatPersonalValue(profile?.birthplace)}
+                  </p>
+                }
+              />
+              <StatCard
+                label="趣味・最近ハマっていることやもの"
+                value={
+                  <p className="text-[14px] font-black leading-6 text-white/90 md:text-base md:leading-7">
+                    {formatPersonalValue(profile?.hobbies)}
+                  </p>
+                }
+              />
+              <StatCard
+                label="ひとこと自己紹介"
+                value={
+                  <p className="text-[14px] font-black leading-6 text-white/90 md:text-base md:leading-7">
+                    {formatPersonalValue(profile?.bio)}
                   </p>
                 }
               />
@@ -1701,16 +1827,16 @@ export default function ProfilePage() {
               <PanelFrame title="相性ガイド">
                 <div className="grid gap-3 md:gap-4 lg:grid-cols-3">
                   <InsightCard
-                    title={compatibilityGuide.fitTitle}
-                    body={compatibilityGuide.fitBody}
+                    title={replaceCompatibilityGuideText(compatibilityGuide.fitTitle)}
+                    body={replaceCompatibilityGuideText(compatibilityGuide.fitBody)}
                   />
                   <InsightCard
-                    title={compatibilityGuide.cautionTitle}
-                    body={compatibilityGuide.cautionBody}
+                    title={replaceCompatibilityGuideText(compatibilityGuide.cautionTitle)}
+                    body={replaceCompatibilityGuideText(compatibilityGuide.cautionBody)}
                   />
                   <InsightCard
-                    title={compatibilityGuide.adviceTitle}
-                    body={compatibilityGuide.adviceBody}
+                    title={replaceCompatibilityGuideText(compatibilityGuide.adviceTitle)}
+                    body={replaceCompatibilityGuideText(compatibilityGuide.adviceBody)}
                   />
                 </div>
               </PanelFrame>
@@ -1822,7 +1948,6 @@ export default function ProfilePage() {
             {showCompatibility && hasDiagnosis && (
               <div className="flex flex-col gap-3.5 md:gap-5">
                 <CompatibilityListPanel
-                  title="良好関係"
                   headline="相性が良い人"
                   items={bestMatches}
                   emptyMessage="良好関係に該当する相手がまだいません。"
@@ -1830,7 +1955,6 @@ export default function ProfilePage() {
                 />
 
                 <CompatibilityListPanel
-                  title="補完関係"
                   headline="補完しやすい人"
                   items={supportMatches}
                   emptyMessage="補完関係に該当する相手がまだいません。"
@@ -1838,7 +1962,6 @@ export default function ProfilePage() {
                 />
 
                 <CompatibilityListPanel
-                  title="自分を広げてくれる相手"
                   headline="自分を広げてくれる相手"
                   items={stretchMatches}
                   emptyMessage="該当する相手がまだいません。"

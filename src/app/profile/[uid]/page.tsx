@@ -40,6 +40,10 @@ type UserProfile = {
   profileImageUrl?: string;
   status?: string;
   lastDiagnosedAt?: string | null;
+  hobbies?: string;
+  birthplace?: string;
+  birthday?: string;
+  bio?: string;
 };
 
 type AxisScore = {
@@ -156,6 +160,11 @@ type SectionSummary = {
   contents: string[];
 };
 
+type PersonalInfoItem = {
+  label: string;
+  value: string;
+};
+
 type EngineDiagnosticData = {
   userId?: string;
   mbti?: string;
@@ -215,10 +224,106 @@ function getStatusLabel(status?: string) {
   return "-";
 }
 
-function getCategoryBadgeClass(category: CompatibilityCard["category"]) {
-  if (category === "good") return "bg-[#fff8d9] text-black";
-  if (category === "complementary") return "bg-[#d9f7ff] text-black";
-  return "bg-[#ffd0d0] text-black";
+function normalizePersonalText(value?: string | number | null): string {
+  if (typeof value === "number") return String(value);
+  if (typeof value === "string") return value.trim();
+  return "";
+}
+
+function parseBirthday(value?: string | null): {
+  year: number;
+  month: number;
+  day: number;
+} | null {
+  if (!value) return null;
+
+  const parts = value.split("-");
+  if (parts.length !== 3) return null;
+
+  const year = Number(parts[0]);
+  const month = Number(parts[1]);
+  const day = Number(parts[2]);
+
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day)
+  ) {
+    return null;
+  }
+
+  const date = new Date(year, month - 1, day);
+
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() + 1 !== month ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return { year, month, day };
+}
+
+function formatBirthdayMonthDay(value?: string | null): string {
+  const birthday = parseBirthday(value);
+  if (!birthday) return "";
+
+  return `${String(birthday.month).padStart(2, "0")}月${String(
+    birthday.day
+  ).padStart(2, "0")}日`;
+}
+
+function calculateAgeFromBirthday(value?: string | null): string {
+  const birthday = parseBirthday(value);
+  if (!birthday) return "";
+
+  const today = new Date();
+  let age = today.getFullYear() - birthday.year;
+
+  const hasBirthdayPassedThisYear =
+    today.getMonth() + 1 > birthday.month ||
+    (today.getMonth() + 1 === birthday.month &&
+      today.getDate() >= birthday.day);
+
+  if (!hasBirthdayPassedThisYear) {
+    age -= 1;
+  }
+
+  if (age < 0 || age > 120) return "";
+
+  return `${age}歳`;
+}
+
+function formatBirthdayWithAge(value?: string | null): string {
+  const birthdayText = formatBirthdayMonthDay(value);
+  const ageText = calculateAgeFromBirthday(value);
+
+  if (!birthdayText || !ageText) return "";
+
+  return `${birthdayText} / ${ageText}`;
+}
+
+function buildVisiblePersonalInfoItems(
+  profile?: UserProfile | null
+): PersonalInfoItem[] {
+  if (!profile) return [];
+
+  return [
+    { label: "誕生日 / 年齢", value: formatBirthdayWithAge(profile.birthday) },
+    { label: "出身地", value: normalizePersonalText(profile.birthplace) },
+    {
+      label: "趣味・最近ハマっていることやもの",
+      value: normalizePersonalText(profile.hobbies),
+    },
+    { label: "ひとこと自己紹介", value: normalizePersonalText(profile.bio) },
+  ].filter((item) => item.value !== "");
+}
+
+function formatRelationshipText(value: string): string {
+  return value
+    .replaceAll("ぶつかりやすい相手", "自分を広げてくれる相手")
+    .replaceAll("ぶつかりやすい", "自分を広げてくれる");
 }
 
 function buildCompatibilityLabel(category?: string, label?: string) {
@@ -985,20 +1090,18 @@ function AxisPanel({
 }
 
 function CompatibilityListPanel({
-  title,
   headline,
   items,
   emptyMessage,
   showScore,
 }: {
-  title: string;
   headline: string;
   items: CompatibilityCard[];
   emptyMessage: string;
   showScore: boolean;
 }) {
   return (
-    <PanelFrame title={title}>
+    <PanelFrame>
       <h2 className="text-[18px] font-black leading-tight text-[#ffe46a] md:text-2xl">
         {headline}
       </h2>
@@ -1049,14 +1152,6 @@ function CompatibilityListPanel({
                 </p>
               </div>
             </div>
-
-            <p
-              className={`mt-3 inline-flex rounded-full border-[3px] border-black px-2.5 py-1 text-[10px] font-black ${getCategoryBadgeClass(
-                item.category
-              )} md:px-3 md:text-xs`}
-            >
-              {item.categoryLabel}
-            </p>
 
             <p className="mt-3 text-[13px] font-bold leading-5 text-white/85 md:mt-4 md:text-sm md:leading-7">
               {item.summary}
@@ -1465,6 +1560,11 @@ export default function UserProfileDetailPage() {
     [mbtiCode, businessCode, mbtiAxes, businessAxes]
   );
 
+  const personalInfoItems = useMemo(
+    () => buildVisiblePersonalInfoItems(targetProfile),
+    [targetProfile]
+  );
+
   if (loading) {
     return (
       <P4LoadingScreen
@@ -1575,6 +1675,24 @@ export default function UserProfileDetailPage() {
               />
             </div>
           </PanelFrame>
+
+          {personalInfoItems.length > 0 && (
+            <PanelFrame title="パーソナル情報">
+              <div className="grid gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-4">
+                {personalInfoItems.map((item) => (
+                  <StatCard
+                    key={item.label}
+                    label={item.label}
+                    value={
+                      <p className="whitespace-pre-wrap text-[14px] font-black leading-6 text-white/90 md:text-base md:leading-7">
+                        {item.value}
+                      </p>
+                    }
+                  />
+                ))}
+              </div>
+            </PanelFrame>
+          )}
 
           {!hasDiagnosis && (
             <PanelFrame title="診断ステータス">
@@ -1701,15 +1819,7 @@ export default function UserProfileDetailPage() {
               {showCompatibility && directCompatibility && (
                 <PanelFrame title="あなたとの相性">
                   <div className="rounded-[16px] border-[4px] border-black bg-[#111111] p-3 shadow-[0_4px_0_#000] md:rounded-[24px] md:p-5 md:shadow-[0_8px_0_#000]">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div
-                        className={`inline-flex rounded-full border-[3px] border-black px-2.5 py-1 text-[10px] font-black ${getCategoryBadgeClass(
-                          directCompatibility.category
-                        )} md:px-3 md:text-xs`}
-                      >
-                        {directCompatibility.categoryLabel}
-                      </div>
-
+                    <div className="flex flex-wrap items-center justify-end gap-3">
                       {showScore && (
                         <div className="inline-flex rounded-full border-[3px] border-black bg-[#f3c400] px-2.5 py-1 text-[10px] font-black text-black shadow-[0_3px_0_#000] md:px-3 md:text-xs md:shadow-[0_4px_0_#000]">
                           {directCompatibility.score}
@@ -1847,16 +1957,16 @@ export default function UserProfileDetailPage() {
               <PanelFrame title="相性ガイド">
                 <div className="grid gap-3 md:gap-4 lg:grid-cols-3">
                   <InsightCard
-                    title={compatibilityGuide.fitTitle}
-                    body={compatibilityGuide.fitBody}
+                    title={formatRelationshipText(compatibilityGuide.fitTitle)}
+                    body={formatRelationshipText(compatibilityGuide.fitBody)}
                   />
                   <InsightCard
-                    title={compatibilityGuide.cautionTitle}
-                    body={compatibilityGuide.cautionBody}
+                    title={formatRelationshipText(compatibilityGuide.cautionTitle)}
+                    body={formatRelationshipText(compatibilityGuide.cautionBody)}
                   />
                   <InsightCard
-                    title={compatibilityGuide.adviceTitle}
-                    body={compatibilityGuide.adviceBody}
+                    title={formatRelationshipText(compatibilityGuide.adviceTitle)}
+                    body={formatRelationshipText(compatibilityGuide.adviceBody)}
                   />
                 </div>
               </PanelFrame>
@@ -1970,7 +2080,6 @@ export default function UserProfileDetailPage() {
             {showCompatibility && hasDiagnosis && (
               <div className="flex flex-col gap-3.5 md:gap-5">
                 <CompatibilityListPanel
-                  title="良好関係"
                   headline="相性が良い人"
                   items={bestMatches}
                   emptyMessage="良好関係に該当する相手がまだいません。"
@@ -1978,7 +2087,6 @@ export default function UserProfileDetailPage() {
                 />
 
                 <CompatibilityListPanel
-                  title="補完関係"
                   headline="補完しやすい人"
                   items={supportMatches}
                   emptyMessage="補完関係に該当する相手がまだいません。"
@@ -1986,7 +2094,6 @@ export default function UserProfileDetailPage() {
                 />
 
                 <CompatibilityListPanel
-                  title="自分を広げてくれる相手"
                   headline="自分を広げてくれる相手"
                   items={stretchMatches}
                   emptyMessage="該当する相手がまだいません。"

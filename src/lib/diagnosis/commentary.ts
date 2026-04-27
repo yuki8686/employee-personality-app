@@ -270,17 +270,17 @@ function getOverallWorkView(input: DiagnosticLike) {
       ? "役割としては、全体を見ながら整えるポジションで持ち味が出やすいです。"
       : "役割としては、現場で進めながら形にするポジションで持ち味が出やすいです。";
 
-  const riskText =
+  const expansionText =
     cs === "C"
-      ? "一方でスピードが先行すると、周囲との準備度の差が摩擦になりやすいです。"
-      : "一方で慎重さが強く出ると、機会を逃したように見られることがあります。";
+      ? "スピード感があるぶん、周囲の準備度も見ながら進めると、さらに巻き込み力が高まります。"
+      : "慎重に整えられるぶん、機会を見つけた時に一歩早く試す意識を持つと可能性が広がります。";
 
   const processText =
     jp === "J"
       ? "進める時は、先に段取りや判断基準をそろえると安定しやすいです。"
       : "進める時は、余白を残しながら試せる環境のほうが自然に力を出しやすいです。";
 
-  return `${decisionText}${managementText}${riskText}${processText}`;
+  return `${decisionText}${managementText}${expansionText}${processText}`;
 }
 
 function getPairAdviceFromMbti(mbtiType?: string) {
@@ -290,7 +290,7 @@ function getPairAdviceFromMbti(mbtiType?: string) {
     : "進めながら調整できる余白を残すと力を出しやすいです。";
 
   const tfAdvice = mbti.includes("T")
-    ? "結論だけでなく、相手が納得しやすい言い方を添えると摩擦が減ります。"
+    ? "結論だけでなく、相手が納得しやすい言い方を添えると協働の質が上がります。"
     : "配慮に加えて、判断基準を言語化すると伝わりやすくなります。";
 
   const eiAdvice = mbti.includes("E")
@@ -354,7 +354,7 @@ export function buildDiagnosisCommentary(diagnostic: DiagnosticLike) {
     (diagnostic.businessPersonality?.ambiguityAxes?.length ?? 0) > 0
   ) {
     overallParts.push(
-      "ただし一部の軸は境界に近いため、役割や環境によって見え方が変わる余地があります。"
+      "一部の軸は境界に近いため、役割や環境によって柔軟に表情が変わる余地があります。"
     );
   } else {
     overallParts.push(
@@ -388,8 +388,9 @@ export function buildCompatibilityGuide(diagnostic: DiagnosticLike): Compatibili
     return {
       fitTitle: "噛み合いやすい相手",
       fitBody: "役割や判断基準が整理されている相手とは、比較的噛み合いやすいです。",
-      cautionTitle: "ぶつかりやすい相手",
-      cautionBody: "主導権や判断基準が近すぎる相手とは、役割が競合しやすいです。",
+      cautionTitle: "自分を広げてくれる相手",
+      cautionBody:
+        "自分とは違う役割感や判断基準を持つ相手は、新しい視点をくれる存在です。最初にゴールや役割をそろえると、お互いの違いを活かしやすくなります。",
       adviceTitle: "協働のコツ",
       adviceBody: "最初にゴール、役割、判断基準をそろえると協働しやすくなります。",
     };
@@ -404,18 +405,18 @@ export function buildCompatibilityGuide(diagnostic: DiagnosticLike): Compatibili
   const baseFit =
     mp === "M"
       ? "役割分担が明確で、全体設計を尊重できる相手"
-      : "現場判断を尊重し、実行スピードを阻害しすぎない相手";
+      : "現場判断を尊重し、実行スピードを活かしてくれる相手";
 
-  const baseCaution =
+  const baseExpansion =
     cs === "C"
-      ? "慎重に整えたい相手とは、初動の速さで温度差が出やすいです。"
-      : "まず動いて形にしたい相手とは、精度と速度の優先順位でずれやすいです。";
+      ? "慎重に整えたい相手は、自分に準備や確認の視点を足してくれる存在です。"
+      : "まず動いて形にしたい相手は、自分にスピードや挑戦の視点を足してくれる存在です。";
 
   return {
     fitTitle: "噛み合いやすい相手",
     fitBody: `${businessProfile.code} は ${fitWith} のように、役割や視点を補い合える相手と噛み合いやすいです。特に ${baseFit} と組むと持ち味が安定して出やすくなります。`,
-    cautionTitle: "ぶつかりやすい相手",
-    cautionBody: `${cautionWith} のように、主導権の取り方や重視点が近すぎる、あるいは逆方向に強すぎる相手とは摩擦が起きやすいです。${baseCaution}`,
+    cautionTitle: "自分を広げてくれる相手",
+    cautionBody: `${cautionWith} のように、自分とは違う主導権の取り方や重視点を持つ相手は、自分にない視点を広げてくれる存在です。違いをズレとして見るより、判断材料が増える関係として受け止めると協働しやすくなります。${baseExpansion}`,
     adviceTitle: "協働のコツ",
     adviceBody: `${businessProfile.growthTip} また、${getPairAdviceFromMbti(
       mbtiType
@@ -448,20 +449,20 @@ export function buildPairCompatibilityComment(input: {
     input.leftBusinessType?.includes("S") || input.rightBusinessType?.includes("S");
 
   if (sameType) {
-    return `${left.name} 同士は判断基準が似ているため、初速は合いやすい一方で、役割が重なると主導権競合が起きやすい組み合わせです。担当範囲と最終判断者を先に分けると安定しやすいです。`;
+    return `${left.name} 同士は判断基準が似ているため、初速を合わせやすい組み合わせです。役割が重なりやすい場面では、担当範囲と最終判断者を先に分けることで、お互いの強みをきれいに活かしやすくなります。`;
   }
 
   if (sameGroup) {
-    return `${left.group} 同士でテンポ感は近い一方、似た強みが重なるぶん役割分担を明確にすると安定しやすい組み合わせです。誰が前に出て、誰が支えるかを早めに決めると噛み合いやすくなります。`;
+    return `${left.group} 同士でテンポ感は近く、共通言語を作りやすい組み合わせです。似た強みが重なるぶん、誰が前に出て、誰が支えるかを早めに決めるとさらに噛み合いやすくなります。`;
   }
 
   if (bothT && bothJ) {
-    return `両者とも判断と推進が速くなりやすい組み合わせです。結論は出やすい一方で、配慮や確認を飛ばさないことが重要です。特に品質確認と周囲説明を意識すると強い組み合わせになります。`;
+    return `両者とも判断と推進が速くなりやすい組み合わせです。結論を出す力が高いため、品質確認や周囲への説明を意識すると、より強い協働関係になりやすいです。`;
   }
 
   if (oneC && oneS) {
-    return `${left.name} と ${right.name} は、挑戦速度と慎重さのバランスを取れると非常に強い組み合わせです。一方で「もう動くか、まだ整えるか」でぶつかりやすいため、判断期限を先に決めると安定しやすいです。`;
+    return `${left.name} と ${right.name} は、挑戦速度と慎重さのバランスを取りやすい組み合わせです。「早く試す視点」と「整えて進める視点」を両方持ち寄れるため、判断期限を先に決めるとお互いの良さを活かしやすくなります。`;
   }
 
-  return `${left.name} と ${right.name} は、役割や判断基準の違いを持ち寄ることで強みが出やすい組み合わせです。最初にゴールと役割をそろえると噛み合いやすくなります。`;
+  return `${left.name} と ${right.name} は、役割や判断基準の違いを持ち寄ることで強みが出やすい組み合わせです。自分にはない視点を相手が持っていると受け止め、最初にゴールと役割をそろえると噛み合いやすくなります。`;
 }

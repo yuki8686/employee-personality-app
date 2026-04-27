@@ -980,10 +980,6 @@ export default function HomePage() {
                         )}
                       </div>
 
-                      <p className="mt-3 inline-flex rounded-full border-[3px] border-black bg-[#f3c400] px-2.5 py-1 text-[10px] font-black text-black shadow-[0_3px_0_#000] md:px-3 md:text-xs md:shadow-[0_4px_0_#000]">
-                        {item.categoryLabel}
-                      </p>
-
                       <div className="mt-3 grid gap-2 md:grid-cols-2">
                         <div className="rounded-[14px] border-[3px] border-black bg-[#1a1a1a] px-3 py-2">
                           <p className="text-[9px] font-black tracking-[0.14em] text-white/55 md:text-[10px] md:tracking-[0.15em]">
