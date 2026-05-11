@@ -43,6 +43,38 @@ type UserProfile = {
   birthplace?: string;
   birthday?: string;
   bio?: string;
+  rootsProfile?: Partial<Record<RootsStageKey, Partial<RootsStageData>>>;
+};
+
+type RootsStageKey =
+  | "childhood"
+  | "elementary"
+  | "juniorHigh"
+  | "highSchool"
+  | "age18to22"
+  | "age23to29"
+  | "current"
+  | "future";
+
+type RootsStageData = {
+  dreams?: string;
+  interests?: string;
+  connection?: string;
+  currentInterests?: string;
+  wantToTry?: string;
+  idealSelf?: string;
+  skillsToLearn?: string;
+  firstStep?: string;
+};
+
+type RootStageConfig = {
+  key: RootsStageKey;
+  title: string;
+  subtitle: string;
+  fields: {
+    key: keyof RootsStageData;
+    label: string;
+  }[];
 };
 
 type AxisScore = {
@@ -165,6 +197,89 @@ type EngineDiagnosticData = {
   businessAxisResults?: Record<string, number>;
 };
 
+const ROOT_STAGE_CONFIGS: RootStageConfig[] = [
+  {
+    key: "childhood",
+    title: "幼少期",
+    subtitle: "純粋な憧れや、理由なく惹かれていたものを思い出す時期。",
+    fields: [
+      { key: "dreams", label: "夢・なりたかったもの" },
+      { key: "interests", label: "興味があったこと" },
+      { key: "connection", label: "今につながっていると思うこと" },
+    ],
+  },
+  {
+    key: "elementary",
+    title: "小学生期",
+    subtitle: "好き・得意・褒められた経験が、自己イメージの芽になりやすい時期。",
+    fields: [
+      { key: "dreams", label: "夢・なりたかったもの" },
+      { key: "interests", label: "興味があったこと" },
+      { key: "connection", label: "今につながっていると思うこと" },
+    ],
+  },
+  {
+    key: "juniorHigh",
+    title: "中学生期",
+    subtitle: "周囲との比較や得意不得意から、自分像が揺れやすい時期。",
+    fields: [
+      { key: "dreams", label: "夢・なりたかったもの" },
+      { key: "interests", label: "興味があったこと" },
+      { key: "connection", label: "今につながっていると思うこと" },
+    ],
+  },
+  {
+    key: "highSchool",
+    title: "高校生期",
+    subtitle: "進路や現実に触れ、夢の解像度が変わり始める時期。",
+    fields: [
+      { key: "dreams", label: "夢・なりたかったもの" },
+      { key: "interests", label: "興味があったこと" },
+      { key: "connection", label: "今につながっていると思うこと" },
+    ],
+  },
+  {
+    key: "age18to22",
+    title: "18歳〜22歳ごろ",
+    subtitle: "進学・就職・環境変化で、仕事観や人生観が作られやすい時期。",
+    fields: [
+      { key: "dreams", label: "目指していたこと・なりたかった姿" },
+      { key: "interests", label: "興味があったこと" },
+      { key: "connection", label: "変化したこと・今につながっていること" },
+    ],
+  },
+  {
+    key: "age23to29",
+    title: "23歳以降",
+    subtitle: "社会での評価や成果から、セルフイメージが固まりやすい時期。",
+    fields: [
+      { key: "dreams", label: "目指していたこと・なりたかった姿" },
+      { key: "interests", label: "興味があったこと" },
+      { key: "connection", label: "変化したこと・今につながっていること" },
+    ],
+  },
+  {
+    key: "current",
+    title: "現在",
+    subtitle: "夢の材料になる、今の興味や小さな違和感を拾う場所。",
+    fields: [
+      { key: "currentInterests", label: "今興味があること" },
+      { key: "wantToTry", label: "これからやってみたいこと" },
+      { key: "idealSelf", label: "なりたい自分" },
+    ],
+  },
+  {
+    key: "future",
+    title: "これから",
+    subtitle: "興味を仕事に変えるための、最初のロードマップの種。",
+    fields: [
+      { key: "idealSelf", label: "理想の自分" },
+      { key: "skillsToLearn", label: "身につけたいこと" },
+      { key: "firstStep", label: "最初の一歩" },
+    ],
+  },
+];
+
 function normalizeList(value: string[] | undefined): string[] {
   return Array.isArray(value)
     ? value.filter((item) => typeof item === "string" && item.trim() !== "")
@@ -231,6 +346,20 @@ function formatPersonalValue(value?: string | number | null): string {
   if (typeof value === "number") return String(value);
   if (typeof value === "string" && value.trim() !== "") return value.trim();
   return "未設定";
+}
+
+function formatRootsValue(value?: string | null): string {
+  if (typeof value === "string" && value.trim() !== "") return value.trim();
+  return "未設定";
+}
+
+function getRootStageValue(
+  rootsProfile: UserProfile["rootsProfile"],
+  stageKey: RootsStageKey,
+  fieldKey: keyof RootsStageData
+): string {
+  const value = rootsProfile?.[stageKey]?.[fieldKey];
+  return typeof value === "string" ? value : "";
 }
 
 function parseBirthday(value?: string | null): {
@@ -989,6 +1118,45 @@ function ListCard({
   );
 }
 
+function RootsStageCard({
+  stage,
+  rootsProfile,
+}: {
+  stage: RootStageConfig;
+  rootsProfile: UserProfile["rootsProfile"];
+}) {
+  return (
+    <div className="rounded-[16px] border-[4px] border-black bg-[#111111] p-3.5 shadow-[0_5px_0_#000] md:rounded-[22px] md:p-5 md:shadow-[0_8px_0_#000]">
+      <div>
+        <p className="text-[15px] font-black leading-tight text-[#ffe46a] md:text-lg">
+          {stage.title}
+        </p>
+        <p className="mt-1.5 text-[11px] font-bold leading-5 text-white/65 md:text-xs md:leading-6">
+          {stage.subtitle}
+        </p>
+      </div>
+
+      <div className="mt-3 grid gap-2.5 md:mt-4 md:gap-3">
+        {stage.fields.map((field) => (
+          <div
+            key={`${stage.key}-${field.key}`}
+            className="rounded-[12px] border-[3px] border-black bg-[#1a1a1a] p-3 shadow-[0_3px_0_#000] md:rounded-[16px] md:p-4 md:shadow-[0_5px_0_#000]"
+          >
+            <p className="text-[10px] font-black tracking-[0.1em] text-white/55 md:text-xs md:tracking-[0.15em]">
+              {field.label}
+            </p>
+            <p className="mt-1.5 whitespace-pre-wrap text-[13px] font-bold leading-6 text-white/85 md:mt-2 md:text-sm md:leading-7">
+              {formatRootsValue(
+                getRootStageValue(rootsProfile, stage.key, field.key)
+              )}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function AxisPanel({
   title,
   axes,
@@ -1575,6 +1743,27 @@ export default function ProfilePage() {
                   </p>
                 }
               />
+            </div>
+          </PanelFrame>
+
+          <PanelFrame title="ROOTS PROFILE">
+            <div>
+              <h2 className="text-lg font-black leading-tight text-[#ffe46a] md:text-2xl">
+                自分のルーツ
+              </h2>
+              <p className="mt-2 text-[12px] font-bold leading-5 text-white/75 md:text-sm md:leading-7">
+                昔の夢や興味を振り返り、今の興味やこれからのロードマップにつながる材料を整理します。
+              </p>
+            </div>
+
+            <div className="mt-3 grid gap-3 md:mt-5 md:gap-4 lg:grid-cols-2">
+              {ROOT_STAGE_CONFIGS.map((stage) => (
+                <RootsStageCard
+                  key={stage.key}
+                  stage={stage}
+                  rootsProfile={profile?.rootsProfile}
+                />
+              ))}
             </div>
           </PanelFrame>
 

@@ -10,6 +10,29 @@ import P4LoadingScreen from "@/components/P4LoadingScreen";
 import P4BottomNav from "@/components/P4BottomNav";
 import P4PageNav from "@/components/P4PageNav";
 
+type RootsStageKey =
+  | "childhood"
+  | "elementary"
+  | "juniorHigh"
+  | "highSchool"
+  | "age18to22"
+  | "age23to29"
+  | "current"
+  | "future";
+
+type RootsStageData = {
+  dreams?: string;
+  interests?: string;
+  connection?: string;
+  currentInterests?: string;
+  wantToTry?: string;
+  idealSelf?: string;
+  skillsToLearn?: string;
+  firstStep?: string;
+};
+
+type RootsProfile = Record<RootsStageKey, RootsStageData>;
+
 type UserProfile = {
   uid: string;
   name?: string;
@@ -24,7 +47,199 @@ type UserProfile = {
   birthplace?: string;
   birthday?: string;
   bio?: string;
+  rootsProfile?: Partial<Record<RootsStageKey, Partial<RootsStageData>>>;
 };
+
+type RootStageConfig = {
+  key: RootsStageKey;
+  title: string;
+  subtitle: string;
+  fields: {
+    key: keyof RootsStageData;
+    label: string;
+    placeholder: string;
+    maxLength?: number;
+  }[];
+};
+
+const ROOT_STAGE_CONFIGS: RootStageConfig[] = [
+  {
+    key: "childhood",
+    title: "幼少期",
+    subtitle: "純粋な憧れや、理由なく惹かれていたものを思い出す時期。",
+    fields: [
+      {
+        key: "dreams",
+        label: "夢・なりたかったもの",
+        placeholder: "例：ヒーロー、サッカー選手、絵を描く人",
+      },
+      {
+        key: "interests",
+        label: "興味があったこと",
+        placeholder: "例：人前に出ること、ものづくり、ゲーム、スポーツ",
+      },
+      {
+        key: "connection",
+        label: "今につながっていると思うこと",
+        placeholder: "例：人を楽しませたい気持ちは今も残っている",
+      },
+    ],
+  },
+  {
+    key: "elementary",
+    title: "小学生期",
+    subtitle: "好き・得意・褒められた経験が、自己イメージの芽になりやすい時期。",
+    fields: [
+      {
+        key: "dreams",
+        label: "夢・なりたかったもの",
+        placeholder: "例：先生、漫画家、野球選手、YouTuber",
+      },
+      {
+        key: "interests",
+        label: "興味があったこと",
+        placeholder: "例：友達と遊ぶこと、発表、自由研究、習い事",
+      },
+      {
+        key: "connection",
+        label: "今につながっていると思うこと",
+        placeholder: "例：誰かに教えることが好きだった",
+      },
+    ],
+  },
+  {
+    key: "juniorHigh",
+    title: "中学生期",
+    subtitle: "周囲との比較や得意不得意から、自分像が揺れやすい時期。",
+    fields: [
+      {
+        key: "dreams",
+        label: "夢・なりたかったもの",
+        placeholder: "例：部活で活躍する人、音楽に関わる人、安定した仕事",
+      },
+      {
+        key: "interests",
+        label: "興味があったこと",
+        placeholder: "例：部活、友人関係、ファッション、勉強、ゲーム",
+      },
+      {
+        key: "connection",
+        label: "今につながっていると思うこと",
+        placeholder: "例：チームで動くことの楽しさを知った",
+      },
+    ],
+  },
+  {
+    key: "highSchool",
+    title: "高校生期",
+    subtitle: "進路や現実に触れ、夢の解像度が変わり始める時期。",
+    fields: [
+      {
+        key: "dreams",
+        label: "夢・なりたかったもの",
+        placeholder: "例：営業、接客、デザイン、スポーツ関係、まだ分からなかった",
+      },
+      {
+        key: "interests",
+        label: "興味があったこと",
+        placeholder: "例：アルバイト、友人、進路、趣味、部活",
+      },
+      {
+        key: "connection",
+        label: "今につながっていると思うこと",
+        placeholder: "例：人と関わる仕事への抵抗がなくなった",
+      },
+    ],
+  },
+  {
+    key: "age18to22",
+    title: "18歳〜22歳ごろ",
+    subtitle: "進学・就職・環境変化で、仕事観や人生観が作られやすい時期。",
+    fields: [
+      {
+        key: "dreams",
+        label: "目指していたこと・なりたかった姿",
+        placeholder: "例：稼げる人、自立した人、好きなことで働く人",
+      },
+      {
+        key: "interests",
+        label: "興味があったこと",
+        placeholder: "例：仕事、お金、遊び、人間関係、専門スキル",
+      },
+      {
+        key: "connection",
+        label: "変化したこと・今につながっていること",
+        placeholder: "例：現実的に働くことを考え始めた",
+      },
+    ],
+  },
+  {
+    key: "age23to29",
+    title: "23歳以降",
+    subtitle: "社会での評価や成果から、セルフイメージが固まりやすい時期。",
+    fields: [
+      {
+        key: "dreams",
+        label: "目指していたこと・なりたかった姿",
+        placeholder: "例：成果を出せる人、頼られる人、管理する側",
+      },
+      {
+        key: "interests",
+        label: "興味があったこと",
+        placeholder: "例：キャリアアップ、営業、マネジメント、生活の安定",
+      },
+      {
+        key: "connection",
+        label: "変化したこと・今につながっていること",
+        placeholder: "例：自分の得意不得意が見えてきた",
+      },
+    ],
+  },
+  {
+    key: "current",
+    title: "現在",
+    subtitle: "夢の材料になる、今の興味や小さな違和感を拾う場所。",
+    fields: [
+      {
+        key: "currentInterests",
+        label: "今興味があること",
+        placeholder: "例：AI、採用、企画、人材育成、マネジメント",
+      },
+      {
+        key: "wantToTry",
+        label: "これからやってみたいこと",
+        placeholder: "例：採用の仕組みを作る、教育資料を作る、新しい事業を考える",
+      },
+      {
+        key: "idealSelf",
+        label: "なりたい自分",
+        placeholder: "例：人の可能性を広げられる人、道筋を示せる人",
+      },
+    ],
+  },
+  {
+    key: "future",
+    title: "これから",
+    subtitle: "興味を仕事に変えるための、最初のロードマップの種。",
+    fields: [
+      {
+        key: "idealSelf",
+        label: "理想の自分",
+        placeholder: "例：自分の経験を使って人の成長を支援できる人",
+      },
+      {
+        key: "skillsToLearn",
+        label: "身につけたいこと",
+        placeholder: "例：企画力、採用知識、ロジカルシンキング、マネジメント",
+      },
+      {
+        key: "firstStep",
+        label: "最初の一歩",
+        placeholder: "例：興味のあるテーマを1つ決めて、3か月で学ぶ",
+      },
+    ],
+  },
+];
 
 function normalizeRole(value?: string) {
   return (value || "").trim().toLowerCase();
@@ -56,6 +271,60 @@ function splitBirthday(value?: string) {
 
   const [year, month, day] = value.split("-");
   return { year, month, day };
+}
+
+function createEmptyRootsProfile(): RootsProfile {
+  return ROOT_STAGE_CONFIGS.reduce((acc, stage) => {
+    acc[stage.key] = {};
+    stage.fields.forEach((field) => {
+      acc[stage.key][field.key] = "";
+    });
+    return acc;
+  }, {} as RootsProfile);
+}
+
+function normalizeRootsProfile(
+  value?: Partial<Record<RootsStageKey, Partial<RootsStageData>>>
+): RootsProfile {
+  const empty = createEmptyRootsProfile();
+
+  if (!value || typeof value !== "object") {
+    return empty;
+  }
+
+  ROOT_STAGE_CONFIGS.forEach((stage) => {
+    const rawStage = value[stage.key];
+
+    stage.fields.forEach((field) => {
+      const rawValue = rawStage?.[field.key];
+      empty[stage.key][field.key] =
+        typeof rawValue === "string" ? rawValue : "";
+    });
+  });
+
+  return empty;
+}
+
+function trimRootsProfile(value: RootsProfile): RootsProfile {
+  return ROOT_STAGE_CONFIGS.reduce((acc, stage) => {
+    acc[stage.key] = {};
+    stage.fields.forEach((field) => {
+      acc[stage.key][field.key] =
+        typeof value[stage.key][field.key] === "string"
+          ? value[stage.key][field.key]?.trim() || ""
+          : "";
+    });
+    return acc;
+  }, {} as RootsProfile);
+}
+
+function hasRootsProfileValue(value: RootsProfile): boolean {
+  return ROOT_STAGE_CONFIGS.some((stage) =>
+    stage.fields.some((field) => {
+      const fieldValue = value[stage.key][field.key];
+      return typeof fieldValue === "string" && fieldValue.trim() !== "";
+    })
+  );
 }
 
 function PanelFrame({
@@ -141,6 +410,42 @@ function TextArea({
         className="mt-2 w-full resize-none rounded-[12px] border-[3px] border-black bg-[#1a1a1a] px-3 py-2 text-[13px] font-bold leading-6 text-white outline-none placeholder:text-white/35 focus:bg-[#202020] md:mt-3 md:rounded-[16px] md:px-4 md:py-3 md:text-sm md:leading-7"
       />
     </label>
+  );
+}
+
+function RootStagePanel({
+  stage,
+  value,
+  onChange,
+}: {
+  stage: RootStageConfig;
+  value: RootsStageData;
+  onChange: (field: keyof RootsStageData, nextValue: string) => void;
+}) {
+  return (
+    <div className="rounded-[16px] border-[4px] border-black bg-[#111111] p-3 shadow-[0_4px_0_#000] md:rounded-[22px] md:p-5 md:shadow-[0_8px_0_#000]">
+      <div>
+        <p className="text-[15px] font-black leading-tight text-[#ffe46a] md:text-lg">
+          {stage.title}
+        </p>
+        <p className="mt-1.5 text-[11px] font-bold leading-5 text-white/65 md:text-xs md:leading-6">
+          {stage.subtitle}
+        </p>
+      </div>
+
+      <div className="mt-3 grid gap-3 md:mt-4">
+        {stage.fields.map((field) => (
+          <TextArea
+            key={`${stage.key}-${field.key}`}
+            label={field.label}
+            value={value[field.key] || ""}
+            onChange={(nextValue) => onChange(field.key, nextValue)}
+            placeholder={field.placeholder}
+            maxLength={field.maxLength || 220}
+          />
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -268,6 +573,9 @@ export default function ProfileEditPage() {
   const [birthMonth, setBirthMonth] = useState("");
   const [birthDay, setBirthDay] = useState("");
   const [bio, setBio] = useState("");
+  const [rootsProfile, setRootsProfile] = useState<RootsProfile>(
+    createEmptyRootsProfile
+  );
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -298,6 +606,7 @@ export default function ProfileEditPage() {
         setBirthMonth(birthdayParts.month);
         setBirthDay(birthdayParts.day);
         setBio(typeof data.bio === "string" ? data.bio : "");
+        setRootsProfile(normalizeRootsProfile(data.rootsProfile));
       } catch (e) {
         console.error("profile/edit 読み込み失敗:", e);
         setError("プロフィール情報の読み込みに失敗しました。");
@@ -308,6 +617,20 @@ export default function ProfileEditPage() {
 
     return () => unsubscribe();
   }, [router]);
+
+  function handleRootChange(
+    stageKey: RootsStageKey,
+    fieldKey: keyof RootsStageData,
+    nextValue: string
+  ) {
+    setRootsProfile((current) => ({
+      ...current,
+      [stageKey]: {
+        ...current[stageKey],
+        [fieldKey]: nextValue,
+      },
+    }));
+  }
 
   async function handleSave() {
     if (!profile?.uid) return;
@@ -334,12 +657,17 @@ export default function ProfileEditPage() {
     try {
       setSaving(true);
 
+      const trimmedRootsProfile = trimRootsProfile(rootsProfile);
+
       const payload = {
         hobbies: hobbies.trim() !== "" ? hobbies.trim() : deleteField(),
         birthplace:
           birthplace.trim() !== "" ? birthplace.trim() : deleteField(),
         birthday: birthday !== "" ? birthday : deleteField(),
         bio: bio.trim() !== "" ? bio.trim() : deleteField(),
+        rootsProfile: hasRootsProfileValue(trimmedRootsProfile)
+          ? trimmedRootsProfile
+          : deleteField(),
       };
 
       await updateDoc(doc(db, "users", profile.uid), payload);
@@ -381,7 +709,7 @@ export default function ProfileEditPage() {
                   プロフィール編集
                 </h1>
                 <p className="mt-2 max-w-3xl text-[12px] font-bold leading-5 text-white/80 md:text-sm md:leading-normal">
-                  誕生日や出身地、趣味など、社員同士の会話のきっかけになる情報を編集できます。
+                  誕生日や出身地、趣味、自分のルーツなど、社員同士の会話のきっかけになる情報を編集できます。
                 </p>
               </div>
 
@@ -423,13 +751,13 @@ export default function ProfileEditPage() {
               />
 
               <div className="md:col-span-2">
-              <TextInput
-                label="趣味・最近ハマっていることやもの"
-                value={hobbies}
-                onChange={setHobbies}
-                placeholder="例：映画、ゲーム、カフェ巡り"
-                maxLength={100}
-              />
+                <TextInput
+                  label="趣味・最近ハマっていることやもの"
+                  value={hobbies}
+                  onChange={setHobbies}
+                  placeholder="例：映画、ゲーム、カフェ巡り"
+                  maxLength={100}
+                />
               </div>
 
               <div className="md:col-span-2">
@@ -442,29 +770,54 @@ export default function ProfileEditPage() {
                 />
               </div>
             </div>
+          </PanelFrame>
 
-            <div className="mt-4 flex flex-wrap gap-2.5 md:mt-5 md:gap-3">
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={saving}
-                className="group relative overflow-hidden rounded-[12px] border-[3px] border-black bg-[#f3c400] px-4 py-2 text-[12px] font-black text-black shadow-[0_5px_0_#000] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#ffe15a] hover:shadow-[0_8px_0_#000] active:translate-y-0 active:shadow-[0_3px_0_#000] disabled:cursor-not-allowed disabled:opacity-60 md:rounded-[16px] md:text-sm md:shadow-[0_6px_0_#000]"
-              >
-                <span className="relative z-10">
-                  {saving ? "保存中..." : "保存する"}
-                </span>
-                <span className="absolute inset-y-0 left-0 w-2 bg-white/15 transition-all duration-200 group-hover:w-4" />
-              </button>
+          <PanelFrame title="ROOTS PROFILE">
+            <div>
+              <h2 className="text-lg font-black leading-tight text-[#ffe46a] md:text-2xl">
+                自分のルーツ
+              </h2>
+              <p className="mt-2 text-[12px] font-bold leading-5 text-white/75 md:text-sm md:leading-7">
+                昔の夢や興味を振り返り、今の興味やこれからのロードマップにつながる材料を整理します。
+                すべて任意入力です。
+              </p>
+            </div>
 
-              <Link
-                href="/profile"
-                className="group relative overflow-hidden rounded-[12px] border-[3px] border-black bg-[#111111] px-4 py-2 text-[12px] font-black text-white shadow-[0_5px_0_#000] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#1d1d1d] hover:shadow-[0_8px_0_#000] active:translate-y-0 active:shadow-[0_3px_0_#000] md:rounded-[16px] md:text-sm md:shadow-[0_6px_0_#000]"
-              >
-                <span className="relative z-10">戻る</span>
-                <span className="absolute inset-y-0 left-0 w-2 bg-white/15 transition-all duration-200 group-hover:w-4" />
-              </Link>
+            <div className="mt-3 grid gap-3 md:mt-5 md:gap-4">
+              {ROOT_STAGE_CONFIGS.map((stage) => (
+                <RootStagePanel
+                  key={stage.key}
+                  stage={stage}
+                  value={rootsProfile[stage.key]}
+                  onChange={(fieldKey, nextValue) =>
+                    handleRootChange(stage.key, fieldKey, nextValue)
+                  }
+                />
+              ))}
             </div>
           </PanelFrame>
+
+          <div className="flex flex-wrap gap-2.5 md:gap-3">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="group relative overflow-hidden rounded-[12px] border-[3px] border-black bg-[#f3c400] px-4 py-2 text-[12px] font-black text-black shadow-[0_5px_0_#000] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#ffe15a] hover:shadow-[0_8px_0_#000] active:translate-y-0 active:shadow-[0_3px_0_#000] disabled:cursor-not-allowed disabled:opacity-60 md:rounded-[16px] md:text-sm md:shadow-[0_6px_0_#000]"
+            >
+              <span className="relative z-10">
+                {saving ? "保存中..." : "保存する"}
+              </span>
+              <span className="absolute inset-y-0 left-0 w-2 bg-white/15 transition-all duration-200 group-hover:w-4" />
+            </button>
+
+            <Link
+              href="/profile"
+              className="group relative overflow-hidden rounded-[12px] border-[3px] border-black bg-[#111111] px-4 py-2 text-[12px] font-black text-white shadow-[0_5px_0_#000] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#1d1d1d] hover:shadow-[0_8px_0_#000] active:translate-y-0 active:shadow-[0_3px_0_#000] md:rounded-[16px] md:text-sm md:shadow-[0_6px_0_#000]"
+            >
+              <span className="relative z-10">戻る</span>
+              <span className="absolute inset-y-0 left-0 w-2 bg-white/15 transition-all duration-200 group-hover:w-4" />
+            </Link>
+          </div>
         </div>
       </main>
 

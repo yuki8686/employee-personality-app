@@ -14,7 +14,6 @@ import { onAuthStateChanged } from "firebase/auth";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
-import { canViewUserProfile } from "@/lib/permissions";
 import {
   getBusinessTypeName,
   getMbtiTypeName,
@@ -28,22 +27,142 @@ import P4LoadingScreen from "@/components/P4LoadingScreen";
 import P4BottomNav from "@/components/P4BottomNav";
 import P4PageNav from "@/components/P4PageNav";
 
+type RootsStageKey =
+  | "childhood"
+  | "elementary"
+  | "juniorHigh"
+  | "highSchool"
+  | "age18to22"
+  | "age23to29"
+  | "current"
+  | "future";
+
+type RootsStageData = {
+  dreams?: string;
+  interests?: string;
+  connection?: string;
+  currentInterests?: string;
+  wantToTry?: string;
+  idealSelf?: string;
+  skillsToLearn?: string;
+  firstStep?: string;
+};
+
+type RootsStageConfig = {
+  key: RootsStageKey;
+  title: string;
+  subtitle: string;
+  fields: {
+    key: keyof RootsStageData;
+    label: string;
+  }[];
+};
+
+type VisibleRootsStage = {
+  key: RootsStageKey;
+  title: string;
+  subtitle: string;
+  items: {
+    label: string;
+    value: string;
+  }[];
+};
+
+const ROOT_STAGE_CONFIGS: RootsStageConfig[] = [
+  {
+    key: "childhood",
+    title: "幼少期",
+    subtitle: "純粋な憧れや、理由なく惹かれていたものを思い出す時期。",
+    fields: [
+      { key: "dreams", label: "夢・なりたかったもの" },
+      { key: "interests", label: "興味があったこと" },
+      { key: "connection", label: "今につながっていると思うこと" },
+    ],
+  },
+  {
+    key: "elementary",
+    title: "小学生期",
+    subtitle: "好き・得意・褒められた経験が、自己イメージの芽になりやすい時期。",
+    fields: [
+      { key: "dreams", label: "夢・なりたかったもの" },
+      { key: "interests", label: "興味があったこと" },
+      { key: "connection", label: "今につながっていると思うこと" },
+    ],
+  },
+  {
+    key: "juniorHigh",
+    title: "中学生期",
+    subtitle: "周囲との比較や得意不得意から、自分像が揺れやすい時期。",
+    fields: [
+      { key: "dreams", label: "夢・なりたかったもの" },
+      { key: "interests", label: "興味があったこと" },
+      { key: "connection", label: "今につながっていると思うこと" },
+    ],
+  },
+  {
+    key: "highSchool",
+    title: "高校生期",
+    subtitle: "進路や現実に触れ、夢の解像度が変わり始める時期。",
+    fields: [
+      { key: "dreams", label: "夢・なりたかったもの" },
+      { key: "interests", label: "興味があったこと" },
+      { key: "connection", label: "今につながっていると思うこと" },
+    ],
+  },
+  {
+    key: "age18to22",
+    title: "18歳〜22歳ごろ",
+    subtitle: "進学・就職・環境変化で、仕事観や人生観が作られやすい時期。",
+    fields: [
+      { key: "dreams", label: "目指していたこと・なりたかった姿" },
+      { key: "interests", label: "興味があったこと" },
+      { key: "connection", label: "変化したこと・今につながっていること" },
+    ],
+  },
+  {
+    key: "age23to29",
+    title: "23歳以降",
+    subtitle: "社会での評価や成果から、セルフイメージが固まりやすい時期。",
+    fields: [
+      { key: "dreams", label: "目指していたこと・なりたかった姿" },
+      { key: "interests", label: "興味があったこと" },
+      { key: "connection", label: "変化したこと・今につながっていること" },
+    ],
+  },
+  {
+    key: "current",
+    title: "現在",
+    subtitle: "夢の材料になる、今の興味や小さな違和感を拾う場所。",
+    fields: [
+      { key: "currentInterests", label: "今興味があること" },
+      { key: "wantToTry", label: "これからやってみたいこと" },
+      { key: "idealSelf", label: "なりたい自分" },
+    ],
+  },
+  {
+    key: "future",
+    title: "これから",
+    subtitle: "興味を仕事に変えるための、最初のロードマップの種。",
+    fields: [
+      { key: "idealSelf", label: "理想の自分" },
+      { key: "skillsToLearn", label: "身につけたいこと" },
+      { key: "firstStep", label: "最初の一歩" },
+    ],
+  },
+];
+
 type UserProfile = {
   uid: string;
   name?: string;
   nameKana?: string;
   email?: string;
   role?: string;
-  departmentId?: string;
   departmentName?: string;
+  departmentId?: string;
   partnerCompany?: string;
-  profileImageUrl?: string;
   status?: string;
+  profileImageUrl?: string;
   lastDiagnosedAt?: string | null;
-  hobbies?: string;
-  birthplace?: string;
-  birthday?: string;
-  bio?: string;
 };
 
 type AxisScore = {
@@ -63,32 +182,25 @@ type AxisScore = {
   signedScore?: number;
 };
 
-type DiagnosticsCurrentDoc = {
+type CurrentDiagnosticData = {
   userId?: string;
   mbti?: {
     type?: string;
     confidence?: number;
     ambiguityAxes?: string[];
+    axisResults?: Record<string, AxisScore>;
     strengths?: string[];
     weaknesses?: string[];
     traits?: string[];
-    axisResults?: Record<string, AxisScore>;
   };
   businessPersonality?: {
     primaryType?: string;
-    secondaryType?: string | string[];
-    ambiguityAxes?: string[];
     typeName?: string;
-    cluster?: string;
-    summary?: string;
-    communicationTips?: string[];
-    cautions?: string[];
     confidence?: number;
+    ambiguityAxes?: string[];
     axisResults?: Record<string, AxisScore>;
   };
   diagnosedAt?: string;
-  availableRetakeAt?: string;
-  historyVersion?: number;
   updatedAt?: string;
 };
 
@@ -160,11 +272,6 @@ type SectionSummary = {
   contents: string[];
 };
 
-type PersonalInfoItem = {
-  label: string;
-  value: string;
-};
-
 type EngineDiagnosticData = {
   userId?: string;
   mbti?: string;
@@ -178,23 +285,27 @@ type EngineDiagnosticData = {
   businessAxisResults?: Record<string, number>;
 };
 
-function normalizeRole(value?: string) {
-  return (value || "").trim().toLowerCase();
-}
-
 function normalizeList(value: string[] | undefined): string[] {
   return Array.isArray(value)
     ? value.filter((item) => typeof item === "string" && item.trim() !== "")
     : [];
 }
 
+function normalizeRole(value?: string) {
+  return (value || "").trim().toLowerCase();
+}
+
 function isAdmin(role?: string) {
   return normalizeRole(role) === "admin";
 }
 
-function canShowCompatibilityOnOtherProfile(role?: string) {
+function canShowCompatibilityOnSelfProfile(role?: string) {
   const normalized = normalizeRole(role);
-  return normalized === "admin" || normalized === "manager";
+  return (
+    normalized === "admin" ||
+    normalized === "manager" ||
+    normalized === "employee"
+  );
 }
 
 function formatDisplayDate(value?: string | null): string {
@@ -216,6 +327,18 @@ function formatPercent(value?: number): string {
   return `${Math.round(value * 100)}%`;
 }
 
+function formatAxisLabel(axis: string) {
+  if (axis === "EI") return "E / I";
+  if (axis === "SN") return "S / N";
+  if (axis === "TF") return "T / F";
+  if (axis === "JP") return "J / P";
+  if (axis === "MP") return "Manager / Player";
+  if (axis === "QR") return "Quest / Reward";
+  if (axis === "VT") return "Value / Terms";
+  if (axis === "CS") return "Challenge / Safety";
+  return axis;
+}
+
 function getStatusLabel(status?: string) {
   const normalized = (status || "").toLowerCase();
   if (normalized === "active") return "active";
@@ -224,106 +347,10 @@ function getStatusLabel(status?: string) {
   return "-";
 }
 
-function normalizePersonalText(value?: string | number | null): string {
-  if (typeof value === "number") return String(value);
-  if (typeof value === "string") return value.trim();
-  return "";
-}
-
-function parseBirthday(value?: string | null): {
-  year: number;
-  month: number;
-  day: number;
-} | null {
-  if (!value) return null;
-
-  const parts = value.split("-");
-  if (parts.length !== 3) return null;
-
-  const year = Number(parts[0]);
-  const month = Number(parts[1]);
-  const day = Number(parts[2]);
-
-  if (
-    !Number.isInteger(year) ||
-    !Number.isInteger(month) ||
-    !Number.isInteger(day)
-  ) {
-    return null;
-  }
-
-  const date = new Date(year, month - 1, day);
-
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() + 1 !== month ||
-    date.getDate() !== day
-  ) {
-    return null;
-  }
-
-  return { year, month, day };
-}
-
-function formatBirthdayMonthDay(value?: string | null): string {
-  const birthday = parseBirthday(value);
-  if (!birthday) return "";
-
-  return `${String(birthday.month).padStart(2, "0")}月${String(
-    birthday.day
-  ).padStart(2, "0")}日`;
-}
-
-function calculateAgeFromBirthday(value?: string | null): string {
-  const birthday = parseBirthday(value);
-  if (!birthday) return "";
-
-  const today = new Date();
-  let age = today.getFullYear() - birthday.year;
-
-  const hasBirthdayPassedThisYear =
-    today.getMonth() + 1 > birthday.month ||
-    (today.getMonth() + 1 === birthday.month &&
-      today.getDate() >= birthday.day);
-
-  if (!hasBirthdayPassedThisYear) {
-    age -= 1;
-  }
-
-  if (age < 0 || age > 120) return "";
-
-  return `${age}歳`;
-}
-
-function formatBirthdayWithAge(value?: string | null): string {
-  const birthdayText = formatBirthdayMonthDay(value);
-  const ageText = calculateAgeFromBirthday(value);
-
-  if (!birthdayText || !ageText) return "";
-
-  return `${birthdayText} / ${ageText}`;
-}
-
-function buildVisiblePersonalInfoItems(
-  profile?: UserProfile | null
-): PersonalInfoItem[] {
-  if (!profile) return [];
-
-  return [
-    { label: "誕生日 / 年齢", value: formatBirthdayWithAge(profile.birthday) },
-    { label: "出身地", value: normalizePersonalText(profile.birthplace) },
-    {
-      label: "趣味・最近ハマっていることやもの",
-      value: normalizePersonalText(profile.hobbies),
-    },
-    { label: "ひとこと自己紹介", value: normalizePersonalText(profile.bio) },
-  ].filter((item) => item.value !== "");
-}
-
-function formatRelationshipText(value: string): string {
-  return value
-    .replaceAll("ぶつかりやすい相手", "自分を広げてくれる相手")
-    .replaceAll("ぶつかりやすい", "自分を広げてくれる");
+function getCategoryBadgeClass(category: CompatibilityCard["category"]) {
+  if (category === "good") return "bg-[#fff8d9] text-black";
+  if (category === "complementary") return "bg-[#d9f7ff] text-black";
+  return "bg-[#ffd0d0] text-black";
 }
 
 function buildCompatibilityLabel(category?: string, label?: string) {
@@ -339,129 +366,6 @@ function mapEngineLabelToCategory(
   if (label === "excellent" || label === "good") return "good";
   if (label === "neutral") return "complementary";
   return "challenging";
-}
-
-function formatAxisLabel(axis: string) {
-  if (axis === "EI") return "E / I";
-  if (axis === "SN") return "S / N";
-  if (axis === "TF") return "T / F";
-  if (axis === "JP") return "J / P";
-  if (axis === "MP") return "Manager / Player";
-  if (axis === "QR") return "Quest / Reward";
-  if (axis === "VT") return "Value / Terms";
-  if (axis === "CS") return "Challenge / Safety";
-  return axis;
-}
-
-function buildEngineReasonBuckets(reasons: string[]) {
-  const normalized = reasons.filter((item) => item.trim() !== "");
-  return {
-    strengths: normalized.slice(0, 2),
-    risks:
-      normalized.length >= 3
-        ? [normalized[2]]
-        : ["進め方のすり合わせを先に行うと安定しやすいです。"],
-    advice: [
-      "最初にゴールと役割分担を共有する",
-      "判断基準と相談タイミングを先に合わせる",
-    ],
-  };
-}
-
-function axisScoreToNumber(score?: AxisScore, axis?: string): number {
-  if (!score) return 0;
-  if (typeof score.signedScore === "number") return score.signedScore;
-
-  const diff = typeof score.difference === "number" ? score.difference : 0;
-  const dominant = score.dominant || "";
-  const leftKey = score.leftKey || axis?.[0] || "";
-  const rightKey = score.rightKey || axis?.[1] || "";
-
-  if (!dominant) return 0;
-  if (dominant === leftKey) return -diff;
-  if (dominant === rightKey) return diff;
-  return 0;
-}
-
-function buildAxisNumberMap(
-  axes?: Record<string, AxisScore>
-): Record<string, number> | undefined {
-  if (!axes || Object.keys(axes).length === 0) return undefined;
-
-  const result: Record<string, number> = {};
-  for (const [axis, score] of Object.entries(axes)) {
-    result[axis] = axisScoreToNumber(score, axis);
-  }
-  return result;
-}
-
-function buildEngineDiagnosticData(
-  userId: string,
-  diagnostic: DiagnosticsCurrentDoc | null
-): EngineDiagnosticData | null {
-  if (!diagnostic) return null;
-
-  const mbtiCode = diagnostic.mbti?.type || "";
-  const businessCode = diagnostic.businessPersonality?.primaryType || "";
-
-  if (!mbtiCode || !businessCode) return null;
-
-  const mbtiStrengths = normalizeList(diagnostic.mbti?.strengths);
-  const mbtiWeaknesses = normalizeList(diagnostic.mbti?.weaknesses);
-  const mbtiTraits = normalizeList(diagnostic.mbti?.traits);
-
-  return {
-    userId,
-    mbti: mbtiCode,
-    businessCode,
-    businessTypeName: getBusinessTypeName(businessCode),
-    confidence:
-      typeof diagnostic.businessPersonality?.confidence === "number"
-        ? diagnostic.businessPersonality.confidence
-        : diagnostic.mbti?.confidence,
-    strengths: mbtiStrengths,
-    weaknesses: mbtiWeaknesses,
-    traits: mbtiTraits,
-    mbtiAxisResults: buildAxisNumberMap(diagnostic.mbti?.axisResults),
-    businessAxisResults: buildAxisNumberMap(
-      diagnostic.businessPersonality?.axisResults
-    ),
-  };
-}
-
-function buildCompatibilityCardFromEngine(params: {
-  uid: string;
-  person: PersonSummary;
-  selfDiagnostic: DiagnosticsCurrentDoc | null;
-  otherDiagnostic: DiagnosticsCurrentDoc | null;
-}): CompatibilityCard | null {
-  const { uid, person, selfDiagnostic, otherDiagnostic } = params;
-
-  const selfData = buildEngineDiagnosticData("self", selfDiagnostic);
-  const otherData = buildEngineDiagnosticData(uid, otherDiagnostic);
-
-  if (!selfData || !otherData) return null;
-
-  const result = calculateCompatibility(selfData, otherData);
-  const category = mapEngineLabelToCategory(result.label);
-  const buckets = buildEngineReasonBuckets(result.reasons);
-
-  return {
-    uid,
-    name: person.name,
-    role: person.role,
-    departmentName: person.departmentName,
-    mbti: person.mbti,
-    businessCode: person.businessCode,
-    businessTypeName: person.businessTypeName,
-    score: result.score,
-    category,
-    categoryLabel: buildCompatibilityLabel(category),
-    summary: result.summary,
-    strengths: buckets.strengths,
-    risks: buckets.risks,
-    advice: buckets.advice,
-  };
 }
 
 function extractFeedbackSections(item: FeedbackItem): FeedbackSection[] {
@@ -580,9 +484,9 @@ async function loadPeopleByUserIds(
       ),
     ]);
 
-    const diagnosticsMap = new Map<string, DiagnosticsCurrentDoc>();
+    const diagnosticsMap = new Map<string, CurrentDiagnosticData>();
     diagnosticsSnap.forEach((snapshot) => {
-      diagnosticsMap.set(snapshot.id, snapshot.data() as DiagnosticsCurrentDoc);
+      diagnosticsMap.set(snapshot.id, snapshot.data() as CurrentDiagnosticData);
     });
 
     usersSnap.forEach((snapshot) => {
@@ -608,8 +512,8 @@ async function loadPeopleByUserIds(
 
 async function loadDiagnosticsByUserIds(
   userIds: string[]
-): Promise<Map<string, DiagnosticsCurrentDoc>> {
-  const diagnosticsMap = new Map<string, DiagnosticsCurrentDoc>();
+): Promise<Map<string, CurrentDiagnosticData>> {
+  const diagnosticsMap = new Map<string, CurrentDiagnosticData>();
   if (userIds.length === 0) return diagnosticsMap;
 
   const chunks = chunkArray(userIds, 10);
@@ -620,7 +524,7 @@ async function loadDiagnosticsByUserIds(
     );
 
     diagnosticsSnap.forEach((snapshot) => {
-      diagnosticsMap.set(snapshot.id, snapshot.data() as DiagnosticsCurrentDoc);
+      diagnosticsMap.set(snapshot.id, snapshot.data() as CurrentDiagnosticData);
     });
   }
 
@@ -646,10 +550,7 @@ async function loadCompatibilitiesByUserId(
         data.category === "challenging"
           ? data.category
           : "challenging",
-      categoryLabel:
-        typeof data.categoryLabel === "string" && data.categoryLabel.trim() !== ""
-          ? data.categoryLabel
-          : buildCompatibilityLabel(data.category),
+      categoryLabel: buildCompatibilityLabel(data.category, data.categoryLabel),
       summary:
         typeof data.summary === "string" && data.summary.trim() !== ""
           ? data.summary
@@ -675,6 +576,117 @@ async function loadFeedbacksForTarget(targetUid: string): Promise<FeedbackItem[]
       normalizeFeedbackItem(item.data() as Record<string, unknown>, item.id)
     )
     .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+}
+
+function axisScoreToNumber(score?: AxisScore, axis?: string): number {
+  if (!score) return 0;
+  if (typeof score.signedScore === "number") return score.signedScore;
+
+  const diff = typeof score.difference === "number" ? score.difference : 0;
+  const dominant = score.dominant || "";
+  const leftKey = score.leftKey || axis?.[0] || "";
+  const rightKey = score.rightKey || axis?.[1] || "";
+
+  if (!dominant) return 0;
+  if (dominant === leftKey) return -diff;
+  if (dominant === rightKey) return diff;
+  return 0;
+}
+
+function buildAxisNumberMap(
+  axes?: Record<string, AxisScore>
+): Record<string, number> | undefined {
+  if (!axes || Object.keys(axes).length === 0) return undefined;
+
+  const result: Record<string, number> = {};
+  for (const [axis, score] of Object.entries(axes)) {
+    result[axis] = axisScoreToNumber(score, axis);
+  }
+  return result;
+}
+
+function buildEngineDiagnosticData(
+  userId: string,
+  diagnostic: CurrentDiagnosticData | null
+): EngineDiagnosticData | null {
+  if (!diagnostic) return null;
+
+  const mbtiCode = diagnostic.mbti?.type || "";
+  const businessCode = diagnostic.businessPersonality?.primaryType || "";
+
+  if (!mbtiCode || !businessCode) return null;
+
+  const mbtiStrengths = normalizeList(diagnostic.mbti?.strengths);
+  const mbtiWeaknesses = normalizeList(diagnostic.mbti?.weaknesses);
+  const mbtiTraits = normalizeList(diagnostic.mbti?.traits);
+
+  return {
+    userId,
+    mbti: mbtiCode,
+    businessCode,
+    businessTypeName: getBusinessTypeName(businessCode),
+    confidence:
+      typeof diagnostic.businessPersonality?.confidence === "number"
+        ? diagnostic.businessPersonality.confidence
+        : diagnostic.mbti?.confidence,
+    strengths: mbtiStrengths,
+    weaknesses: mbtiWeaknesses,
+    traits: mbtiTraits,
+    mbtiAxisResults: buildAxisNumberMap(diagnostic.mbti?.axisResults),
+    businessAxisResults: buildAxisNumberMap(
+      diagnostic.businessPersonality?.axisResults
+    ),
+  };
+}
+
+function buildEngineReasonBuckets(reasons: string[]) {
+  const normalized = reasons.filter((item) => item.trim() !== "");
+  return {
+    strengths: normalized.slice(0, 2),
+    risks:
+      normalized.length >= 3
+        ? [normalized[2]]
+        : ["進め方のすり合わせを先に行うと安定しやすいです。"],
+    advice: [
+      "最初にゴールと役割分担を共有する",
+      "判断基準と相談タイミングを先に合わせる",
+    ],
+  };
+}
+
+function buildCompatibilityCardFromEngine(params: {
+  uid: string;
+  person: PersonSummary;
+  selfDiagnostic: CurrentDiagnosticData | null;
+  otherDiagnostic: CurrentDiagnosticData | null;
+}): CompatibilityCard | null {
+  const { uid, person, selfDiagnostic, otherDiagnostic } = params;
+
+  const selfData = buildEngineDiagnosticData("self", selfDiagnostic);
+  const otherData = buildEngineDiagnosticData(uid, otherDiagnostic);
+
+  if (!selfData || !otherData) return null;
+
+  const result = calculateCompatibility(selfData, otherData);
+  const category = mapEngineLabelToCategory(result.label);
+  const buckets = buildEngineReasonBuckets(result.reasons);
+
+  return {
+    uid,
+    name: person.name,
+    role: person.role,
+    departmentName: person.departmentName,
+    mbti: person.mbti,
+    businessCode: person.businessCode,
+    businessTypeName: person.businessTypeName,
+    score: result.score,
+    category,
+    categoryLabel: buildCompatibilityLabel(category),
+    summary: result.summary,
+    strengths: buckets.strengths,
+    risks: buckets.risks,
+    advice: buckets.advice,
+  };
 }
 
 function buildMbtiCore(params: {
@@ -928,13 +940,13 @@ function PanelFrame({
 }) {
   return (
     <section
-      className={`relative overflow-hidden rounded-[20px] border-[3px] border-black bg-[#171717] shadow-[0_6px_0_#000] md:rounded-[28px] md:border-[4px] md:shadow-[0_10px_0_#000] ${className}`}
+      className={`relative overflow-hidden rounded-[18px] border-[3px] border-black bg-[#171717] shadow-[0_5px_0_#000] md:rounded-[28px] md:border-[4px] md:shadow-[0_10px_0_#000] ${className}`}
     >
       <div className="absolute left-0 top-0 h-2 w-full bg-[#f3c400] md:h-3" />
       <div className="absolute right-3 top-3 h-3 w-3 rotate-45 border-2 border-black bg-[#ffe46a] md:right-4 md:top-4 md:h-4 md:w-4" />
-      <div className="relative p-3 pt-4.5 md:p-5 md:pt-7">
+      <div className="relative p-3 pt-4 md:p-5 md:pt-7">
         {title && (
-          <div className="mb-2.5 inline-flex rounded-full border-[3px] border-black bg-[#f3c400] px-2.5 py-1 text-[10px] font-black tracking-[0.08em] text-black shadow-[0_3px_0_#000] md:mb-4 md:px-3 md:text-xs md:tracking-normal md:shadow-[0_4px_0_#000]">
+          <div className="mb-2 inline-flex rounded-full border-[3px] border-black bg-[#f3c400] px-2.5 py-1 text-[10px] font-black tracking-[0.06em] text-black shadow-[0_3px_0_#000] md:mb-4 md:px-3 md:text-xs md:tracking-normal md:shadow-[0_4px_0_#000]">
             {title}
           </div>
         )}
@@ -952,8 +964,8 @@ function StatCard({
   value: React.ReactNode;
 }) {
   return (
-    <div className="rounded-[16px] border-[4px] border-black bg-[#111111] p-3 shadow-[0_4px_0_#000] transition-transform duration-200 hover:-translate-y-1 md:rounded-[22px] md:p-5 md:shadow-[0_8px_0_#000]">
-      <p className="text-[10px] font-black tracking-[0.12em] text-white/55 md:text-xs md:tracking-[0.15em]">
+    <div className="rounded-[14px] border-[4px] border-black bg-[#111111] p-3 shadow-[0_4px_0_#000] transition-transform duration-200 hover:-translate-y-1 md:rounded-[22px] md:p-5 md:shadow-[0_8px_0_#000]">
+      <p className="text-[10px] font-black tracking-[0.1em] text-white/55 md:text-xs md:tracking-[0.15em]">
         {label}
       </p>
       <div className="mt-1.5 md:mt-2">{value}</div>
@@ -969,8 +981,8 @@ function InsightCard({
   body: string;
 }) {
   return (
-    <div className="rounded-[16px] border-[4px] border-black bg-[#111111] p-3 shadow-[0_4px_0_#000] md:rounded-[22px] md:p-5 md:shadow-[0_8px_0_#000]">
-      <p className="text-[10px] font-black tracking-[0.12em] text-white/55 md:text-xs md:tracking-[0.15em]">
+    <div className="rounded-[14px] border-[4px] border-black bg-[#111111] p-3 shadow-[0_4px_0_#000] md:rounded-[22px] md:p-5 md:shadow-[0_8px_0_#000]">
+      <p className="text-[10px] font-black tracking-[0.1em] text-white/55 md:text-xs md:tracking-[0.15em]">
         {title}
       </p>
       <p className="mt-2 text-[13px] font-bold leading-5 text-white/85 md:mt-3 md:text-sm md:leading-7">
@@ -988,8 +1000,8 @@ function ListCard({
   items: string[];
 }) {
   return (
-    <div className="rounded-[16px] border-[4px] border-black bg-[#111111] p-3 shadow-[0_4px_0_#000] md:rounded-[22px] md:p-5 md:shadow-[0_8px_0_#000]">
-      <p className="text-[10px] font-black tracking-[0.12em] text-white/55 md:text-xs md:tracking-[0.15em]">
+    <div className="rounded-[14px] border-[4px] border-black bg-[#111111] p-3 shadow-[0_4px_0_#000] md:rounded-[22px] md:p-5 md:shadow-[0_8px_0_#000]">
+      <p className="text-[10px] font-black tracking-[0.1em] text-white/55 md:text-xs md:tracking-[0.15em]">
         {title}
       </p>
       <div className="mt-2 grid gap-2 md:mt-3">
@@ -997,16 +1009,47 @@ function ListCard({
           items.map((item) => (
             <div
               key={item}
-              className="rounded-[12px] border-[3px] border-black bg-[#1a1a1a] px-3 py-2 text-[12px] font-bold leading-5 text-white/85 shadow-[0_3px_0_#000] md:rounded-[14px] md:text-sm md:leading-6 md:shadow-[0_4px_0_#000]"
+              className="rounded-[10px] border-[3px] border-black bg-[#1a1a1a] px-2.5 py-2 text-[13px] font-bold leading-5 text-white/85 shadow-[0_2px_0_#000] md:rounded-[14px] md:px-3 md:text-sm md:leading-6 md:shadow-[0_4px_0_#000]"
             >
               {item}
             </div>
           ))
         ) : (
-          <p className="text-[12px] font-bold leading-5 text-white/75 md:text-sm md:leading-6">
+          <p className="text-[13px] font-bold leading-5 text-white/75 md:text-sm md:leading-6">
             情報がありません。
           </p>
         )}
+      </div>
+    </div>
+  );
+}
+
+function RootsStageCard({ stage }: { stage: VisibleRootsStage }) {
+  return (
+    <div className="rounded-[16px] border-[4px] border-black bg-[#111111] p-3 shadow-[0_4px_0_#000] md:rounded-[22px] md:p-5 md:shadow-[0_8px_0_#000]">
+      <div>
+        <p className="text-[15px] font-black leading-tight text-[#ffe46a] md:text-lg">
+          {stage.title}
+        </p>
+        <p className="mt-1.5 text-[11px] font-bold leading-5 text-white/65 md:text-xs md:leading-6">
+          {stage.subtitle}
+        </p>
+      </div>
+
+      <div className="mt-3 grid gap-3 md:mt-4">
+        {stage.items.map((item) => (
+          <div
+            key={`${stage.key}-${item.label}`}
+            className="rounded-[12px] border-[3px] border-black bg-[#1a1a1a] p-3 shadow-[0_3px_0_#000] md:rounded-[16px] md:p-4 md:shadow-[0_4px_0_#000]"
+          >
+            <p className="text-[10px] font-black tracking-[0.12em] text-white/55 md:text-xs md:tracking-[0.15em]">
+              {item.label}
+            </p>
+            <p className="mt-1.5 whitespace-pre-wrap text-[13px] font-bold leading-6 text-white/85 md:mt-2 md:text-sm md:leading-7">
+              {item.value}
+            </p>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -1020,10 +1063,10 @@ function AxisPanel({
   axes?: Record<string, AxisScore> | null;
 }) {
   return (
-    <div className="rounded-[16px] border-[4px] border-black bg-[#111111] p-3 shadow-[0_4px_0_#000] md:rounded-[22px] md:p-5 md:shadow-[0_8px_0_#000]">
+    <div className="rounded-[14px] border-[4px] border-black bg-[#111111] p-3 shadow-[0_4px_0_#000] md:rounded-[22px] md:p-5 md:shadow-[0_8px_0_#000]">
       <p className="text-[13px] font-black text-[#ffe46a] md:text-sm">{title}</p>
 
-      <div className="mt-3 grid gap-3 md:mt-4 md:gap-4">
+      <div className="mt-2.5 grid gap-2.5 md:mt-4 md:gap-4">
         {axes && Object.keys(axes).length > 0 ? (
           Object.entries(axes).map(([axis, score]) => {
             const leftRatio =
@@ -1038,7 +1081,7 @@ function AxisPanel({
             return (
               <div
                 key={axis}
-                className="rounded-[14px] border-[3px] border-black bg-[#1a1a1a] p-3 shadow-[0_4px_0_#000] md:rounded-[18px] md:p-4 md:shadow-[0_6px_0_#000]"
+                className="rounded-[12px] border-[3px] border-black bg-[#1a1a1a] p-2.5 shadow-[0_3px_0_#000] md:rounded-[18px] md:p-4 md:shadow-[0_6px_0_#000]"
               >
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-[13px] font-black md:text-sm">
@@ -1073,14 +1116,15 @@ function AxisPanel({
                 </div>
 
                 <p className="mt-2 text-[11px] font-bold leading-5 text-white/65 md:mt-3 md:text-xs">
-                  差分: {typeof score.difference === "number" ? score.difference : "-"}
+                  差分:{" "}
+                  {typeof score.difference === "number" ? score.difference : "-"}
                   {score.isBorderline ? " / 境界軸" : ""}
                 </p>
               </div>
             );
           })
         ) : (
-          <p className="text-[12px] font-bold leading-5 text-white/80 md:text-sm md:leading-6">
+          <p className="text-[13px] font-bold leading-5 text-white/80 md:text-sm md:leading-6">
             軸データがありません。
           </p>
         )}
@@ -1090,19 +1134,21 @@ function AxisPanel({
 }
 
 function CompatibilityListPanel({
+  title,
   headline,
   items,
   emptyMessage,
   showScore,
 }: {
+  title: string;
   headline: string;
   items: CompatibilityCard[];
   emptyMessage: string;
   showScore: boolean;
 }) {
   return (
-    <PanelFrame>
-      <h2 className="text-[18px] font-black leading-tight text-[#ffe46a] md:text-2xl">
+    <PanelFrame title={title}>
+      <h2 className="text-lg font-black leading-tight text-[#ffe46a] md:text-2xl">
         {headline}
       </h2>
       <div className="mt-3 grid gap-3 md:mt-5 md:gap-4">
@@ -1110,7 +1156,7 @@ function CompatibilityListPanel({
           <Link
             key={item.uid}
             href={`/profile/${item.uid}`}
-            className="block rounded-[16px] border-[4px] border-black bg-[#111111] p-3 transition-all duration-200 hover:-translate-y-1 hover:bg-[#161616] hover:shadow-[0_12px_0_#000] md:rounded-[24px] md:p-5"
+            className="block rounded-[16px] border-[4px] border-black bg-[#111111] p-3.5 transition-all duration-200 hover:-translate-y-1 hover:bg-[#161616] hover:shadow-[0_12px_0_#000] md:rounded-[24px] md:p-5"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -1153,11 +1199,19 @@ function CompatibilityListPanel({
               </div>
             </div>
 
-            <p className="mt-3 text-[13px] font-bold leading-5 text-white/85 md:mt-4 md:text-sm md:leading-7">
+            <p
+              className={`mt-3 inline-flex rounded-full border-[3px] border-black px-2.5 py-1 text-[10px] font-black ${getCategoryBadgeClass(
+                item.category
+              )} md:px-3 md:text-xs`}
+            >
+              {item.categoryLabel}
+            </p>
+
+            <p className="mt-3 text-[13px] font-bold leading-6 text-white/85 md:mt-4 md:text-sm md:leading-7">
               {item.summary}
             </p>
 
-            <ul className="mt-2 list-disc pl-5 text-[12px] leading-5 text-white/75 md:mt-3 md:text-sm md:leading-7">
+            <ul className="mt-2 list-disc pl-5 text-[13px] leading-6 text-white/75 md:mt-3 md:text-sm md:leading-7">
               {(item.strengths.length > 0 ? item.strengths : item.advice).map(
                 (text) => (
                   <li key={text}>{text}</li>
@@ -1168,8 +1222,8 @@ function CompatibilityListPanel({
         ))}
 
         {items.length === 0 && (
-          <div className="rounded-[16px] border-[4px] border-black bg-[#111111] p-3 shadow-[0_4px_0_#000] md:rounded-[24px] md:p-5 md:shadow-[0_8px_0_#000]">
-            <p className="text-[12px] font-bold leading-5 text-white/80 md:text-sm md:leading-6">
+          <div className="rounded-[16px] border-[4px] border-black bg-[#111111] p-3.5 shadow-[0_5px_0_#000] md:rounded-[24px] md:p-5 md:shadow-[0_8px_0_#000]">
+            <p className="text-[13px] font-bold leading-6 text-white/80 md:text-sm">
               {emptyMessage}
             </p>
           </div>
@@ -1179,213 +1233,112 @@ function CompatibilityListPanel({
   );
 }
 
-export default function UserProfileDetailPage() {
+export default function ProfilePage() {
   const router = useRouter();
-  const params = useParams<{ uid: string }>();
-  const targetUid = Array.isArray(params?.uid) ? params.uid[0] : params?.uid || "";
+  const params = useParams();
+  const targetUid = typeof params.uid === "string" ? params.uid : "";
 
   const [loading, setLoading] = useState(true);
-  const [viewerProfile, setViewerProfile] = useState<UserProfile | null>(null);
-  const [targetProfile, setTargetProfile] = useState<UserProfile | null>(null);
-  const [viewerDiagnostic, setViewerDiagnostic] = useState<DiagnosticsCurrentDoc | null>(
-    null
-  );
-  const [targetDiagnostic, setTargetDiagnostic] = useState<DiagnosticsCurrentDoc | null>(
-    null
-  );
-  const [compatibilityCards, setCompatibilityCards] = useState<CompatibilityCard[]>([]);
-  const [directCompatibility, setDirectCompatibility] = useState<CompatibilityCard | null>(
-    null
-  );
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [diagnostic, setDiagnostic] = useState<CurrentDiagnosticData | null>(null);
+  const [compatibilityCards, setCompatibilityCards] = useState<
+    CompatibilityCard[]
+  >([]);
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
-  const [error, setError] = useState("");
 
   useEffect(() => {
+    if (!targetUid) {
+      router.push("/home");
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         router.push("/login");
         return;
       }
 
-      if (!targetUid) {
-        router.push("/profile");
-        return;
-      }
-
       try {
-        const [viewerSnap, targetSnap, viewerDiagnosticSnap, diagnosticSnap] =
-          await Promise.all([
-            getDoc(doc(db, "users", user.uid)),
-            getDoc(doc(db, "users", targetUid)),
-            getDoc(doc(db, "diagnostics_current", user.uid)),
-            getDoc(doc(db, "diagnostics_current", targetUid)),
-          ]);
+        const [userSnap, diagnosticSnap] = await Promise.all([
+          getDoc(doc(db, "users", targetUid)),
+          getDoc(doc(db, "diagnostics_current", targetUid)),
+        ]);
 
-        if (!viewerSnap.exists()) {
-          router.push("/login");
+        if (!userSnap.exists()) {
+          router.push("/home");
           return;
         }
 
-        if (!targetSnap.exists()) {
-          setError("対象ユーザーが見つかりません。");
-          setLoading(false);
-          return;
-        }
-
-        const viewer: UserProfile = {
-          ...(viewerSnap.data() as Omit<UserProfile, "uid">),
-          uid: user.uid,
-        };
-        const target: UserProfile = {
-          ...(targetSnap.data() as Omit<UserProfile, "uid">),
+        const profileData = {
+          ...(userSnap.data() as Omit<UserProfile, "uid">),
           uid: targetUid,
         };
 
-        setViewerProfile(viewer);
-        setTargetProfile(target);
-        setViewerDiagnostic(
-          viewerDiagnosticSnap.exists()
-            ? (viewerDiagnosticSnap.data() as DiagnosticsCurrentDoc)
-            : null
-        );
-
-        if (user.uid === targetUid) {
-          router.push("/profile");
-          return;
-        }
-
-        const canView = await canViewUserProfile({
-          currentUser: {
-            uid: viewer.uid,
-            name: viewer.name || "",
-            email: viewer.email || "",
-            departmentId: viewer.departmentId || "",
-            departmentName: viewer.departmentName || "",
-            role:
-              (viewer.role as "admin" | "manager" | "employee" | "partner") ||
-              "employee",
-            status:
-              (viewer.status as "pending" | "active" | "disabled") || "active",
-          },
-          targetUser: {
-            uid: target.uid,
-            name: target.name || "",
-            email: target.email || "",
-            departmentId: target.departmentId || "",
-            departmentName: target.departmentName || "",
-            role:
-              (target.role as "admin" | "manager" | "employee" | "partner") ||
-              "employee",
-            status:
-              (target.status as "pending" | "active" | "disabled") || "active",
-          },
-        });
-
-        if (!canView && normalizeRole(viewer.role) !== "admin") {
-          setError("このユーザーのプロフィールを閲覧する権限がありません。");
-          setLoading(false);
-          return;
-        }
-
-        const nextTargetDiagnostic = diagnosticSnap.exists()
-          ? (diagnosticSnap.data() as DiagnosticsCurrentDoc)
+        const nextDiagnostic = diagnosticSnap.exists()
+          ? (diagnosticSnap.data() as CurrentDiagnosticData)
           : null;
-        setTargetDiagnostic(nextTargetDiagnostic);
 
-        if (canShowCompatibilityOnOtherProfile(normalizeRole(viewer.role))) {
-          const [viewerCompatMap, targetCompatMap] = await Promise.all([
-            loadCompatibilitiesByUserId(viewer.uid),
-            loadCompatibilitiesByUserId(targetUid),
-          ]);
+        setProfile(profileData);
+        setDiagnostic(nextDiagnostic);
 
-          const allNeededIds = Array.from(
-            new Set<string>([
-              targetUid,
-              ...Array.from(targetCompatMap.keys()).filter((id) => id !== viewer.uid),
-            ])
-          );
+        const role = normalizeRole(profileData.role);
 
-          const peopleMap = await loadPeopleByUserIds(allNeededIds);
-          const relatedDiagnosticsMap = await loadDiagnosticsByUserIds(allNeededIds);
+        if (canShowCompatibilityOnSelfProfile(role)) {
+          const compatMap = await loadCompatibilitiesByUserId(targetUid);
+          const relatedIds = Array.from(compatMap.keys());
 
-          const directFromFirestore = viewerCompatMap.get(targetUid);
-          const targetPerson = peopleMap.get(targetUid);
+          if (relatedIds.length > 0) {
+            const peopleMap = await loadPeopleByUserIds(relatedIds);
 
-          if (directFromFirestore && targetPerson) {
-            setDirectCompatibility({
-              uid: targetUid,
-              name: targetPerson.name,
-              role: targetPerson.role,
-              departmentName: targetPerson.departmentName,
-              mbti: targetPerson.mbti,
-              businessCode: targetPerson.businessCode,
-              businessTypeName: targetPerson.businessTypeName,
-              score: directFromFirestore.score,
-              category: directFromFirestore.category,
-              categoryLabel:
-                directFromFirestore.categoryLabel ||
-                buildCompatibilityLabel(directFromFirestore.category),
-              summary: directFromFirestore.summary || "相性データがあります。",
-              strengths: directFromFirestore.strengths || [],
-              risks: directFromFirestore.risks || [],
-              advice: directFromFirestore.advice || [],
-            });
-          } else if (targetPerson) {
-            const engineCard = buildCompatibilityCardFromEngine({
-              uid: targetUid,
-              person: targetPerson,
-              selfDiagnostic: viewerDiagnosticSnap.exists()
-                ? (viewerDiagnosticSnap.data() as DiagnosticsCurrentDoc)
-                : null,
-              otherDiagnostic: nextTargetDiagnostic,
-            });
-            setDirectCompatibility(engineCard);
-          } else {
-            setDirectCompatibility(null);
-          }
+            const cards: CompatibilityCard[] = relatedIds
+              .map((uid) => {
+                const compat = compatMap.get(uid);
+                const person = peopleMap.get(uid);
+                if (!compat || !person) return null;
 
-          const relatedIds = Array.from(targetCompatMap.keys()).filter(
-            (id) => id !== viewer.uid
-          );
+                return {
+                  uid,
+                  name: person.name,
+                  role: person.role,
+                  departmentName: person.departmentName,
+                  mbti: person.mbti,
+                  businessCode: person.businessCode,
+                  businessTypeName: person.businessTypeName,
+                  score: compat.score,
+                  category: compat.category,
+                  categoryLabel:
+                    compat.categoryLabel ||
+                    buildCompatibilityLabel(compat.category),
+                  summary: compat.summary || "相性データがあります。",
+                  strengths: compat.strengths || [],
+                  risks: compat.risks || [],
+                  advice: compat.advice || [],
+                };
+              })
+              .filter((item): item is CompatibilityCard => item !== null)
+              .sort((a, b) => b.score - a.score);
 
-          const cards: CompatibilityCard[] = relatedIds
-            .map((uid) => {
-              const compat = targetCompatMap.get(uid);
-              const person = peopleMap.get(uid);
-              if (!compat || !person) return null;
-
-              return {
-                uid,
-                name: person.name,
-                role: person.role,
-                departmentName: person.departmentName,
-                mbti: person.mbti,
-                businessCode: person.businessCode,
-                businessTypeName: person.businessTypeName,
-                score: compat.score,
-                category: compat.category,
-                categoryLabel:
-                  compat.categoryLabel || buildCompatibilityLabel(compat.category),
-                summary: compat.summary || "相性データがあります。",
-                strengths: compat.strengths || [],
-                risks: compat.risks || [],
-                advice: compat.advice || [],
-              };
-            })
-            .filter((item): item is CompatibilityCard => item !== null)
-            .sort((a, b) => b.score - a.score);
-
-          if (cards.length > 0) {
             setCompatibilityCards(cards);
           } else {
-            const fallbackCards: CompatibilityCard[] = Array.from(peopleMap.entries())
-              .filter(([uid]) => uid !== targetUid)
+            const membersSnap = await getDocs(collection(db, "users"));
+            const allUserIds = membersSnap.docs
+              .map((snapshot) => snapshot.id)
+              .filter((uid) => uid !== targetUid);
+
+            const [peopleMap, diagnosticsMap] = await Promise.all([
+              loadPeopleByUserIds(allUserIds),
+              loadDiagnosticsByUserIds(allUserIds),
+            ]);
+
+            const fallbackCards: CompatibilityCard[] = Array.from(
+              peopleMap.entries()
+            )
               .map(([uid, person]) =>
                 buildCompatibilityCardFromEngine({
                   uid,
                   person,
-                  selfDiagnostic: nextTargetDiagnostic,
-                  otherDiagnostic: relatedDiagnosticsMap.get(uid) || null,
+                  selfDiagnostic: nextDiagnostic,
+                  otherDiagnostic: diagnosticsMap.get(uid) || null,
                 })
               )
               .filter((item): item is CompatibilityCard => item !== null)
@@ -1394,15 +1347,13 @@ export default function UserProfileDetailPage() {
             setCompatibilityCards(fallbackCards);
           }
         } else {
-          setDirectCompatibility(null);
           setCompatibilityCards([]);
         }
 
         const nextFeedbacks = await loadFeedbacksForTarget(targetUid);
         setFeedbacks(nextFeedbacks);
       } catch (e) {
-        console.error("profile/[uid] 読み込み失敗:", e);
-        setError("プロフィール情報の読み込みに失敗しました。");
+        console.error("profile 読み込み失敗:", e);
       } finally {
         setLoading(false);
       }
@@ -1411,9 +1362,9 @@ export default function UserProfileDetailPage() {
     return () => unsubscribe();
   }, [router, targetUid]);
 
-  const normalizedViewerRole = normalizeRole(viewerProfile?.role);
-  const showCompatibility = canShowCompatibilityOnOtherProfile(normalizedViewerRole);
-  const showScore = isAdmin(normalizedViewerRole);
+  const role = normalizeRole(profile?.role);
+  const showCompatibility = canShowCompatibilityOnSelfProfile(role);
+  const showScore = isAdmin(role);
 
   const bestMatches = useMemo(
     () => compatibilityCards.filter((item) => item.category === "good").slice(0, 3),
@@ -1442,45 +1393,44 @@ export default function UserProfileDetailPage() {
     [feedbacks]
   );
 
-  const latestFeedbackDate = useMemo(
-    () => (feedbacks.length > 0 ? formatDisplayDate(feedbacks[0]?.createdAt) : "-"),
-    [feedbacks]
-  );
+  const latestFeedbackDate = useMemo(() => {
+    return feedbacks.length > 0 ? formatDisplayDate(feedbacks[0]?.createdAt) : "-";
+  }, [feedbacks]);
 
   const latestFeedbacks = useMemo(() => feedbacks.slice(0, 5), [feedbacks]);
 
-  const mbtiAxes = targetDiagnostic?.mbti?.axisResults || null;
-  const businessAxes = targetDiagnostic?.businessPersonality?.axisResults || null;
-  const mbtiCode = targetDiagnostic?.mbti?.type || "-";
-  const businessCode = targetDiagnostic?.businessPersonality?.primaryType || "-";
+  const mbtiAxes = diagnostic?.mbti?.axisResults || null;
+  const businessAxes = diagnostic?.businessPersonality?.axisResults || null;
+  const mbtiCode = diagnostic?.mbti?.type || "-";
+  const businessCode = diagnostic?.businessPersonality?.primaryType || "-";
 
   const commentary = useMemo(
-    () => buildDiagnosisCommentary(targetDiagnostic || {}),
-    [targetDiagnostic]
+    () => buildDiagnosisCommentary(diagnostic || {}),
+    [diagnostic]
   );
 
   const compatibilityGuide = useMemo(
-    () => buildCompatibilityGuide(targetDiagnostic || {}),
-    [targetDiagnostic]
+    () => buildCompatibilityGuide(diagnostic || {}),
+    [diagnostic]
   );
 
-  const mbtiConfidence = targetDiagnostic?.mbti?.confidence;
-  const businessConfidence = targetDiagnostic?.businessPersonality?.confidence;
+  const mbtiConfidence = diagnostic?.mbti?.confidence;
+  const businessConfidence = diagnostic?.businessPersonality?.confidence;
 
   const mbtiAmbiguity = useMemo(
     () =>
-      Array.isArray(targetDiagnostic?.mbti?.ambiguityAxes)
-        ? targetDiagnostic.mbti.ambiguityAxes
+      Array.isArray(diagnostic?.mbti?.ambiguityAxes)
+        ? diagnostic?.mbti?.ambiguityAxes
         : [],
-    [targetDiagnostic?.mbti?.ambiguityAxes]
+    [diagnostic?.mbti?.ambiguityAxes]
   );
 
   const businessAmbiguity = useMemo(
     () =>
-      Array.isArray(targetDiagnostic?.businessPersonality?.ambiguityAxes)
-        ? targetDiagnostic.businessPersonality.ambiguityAxes
+      Array.isArray(diagnostic?.businessPersonality?.ambiguityAxes)
+        ? diagnostic?.businessPersonality?.ambiguityAxes
         : [],
-    [targetDiagnostic?.businessPersonality?.ambiguityAxes]
+    [diagnostic?.businessPersonality?.ambiguityAxes]
   );
 
   const mbtiCommentaryBlock = useMemo(
@@ -1494,16 +1444,24 @@ export default function UserProfileDetailPage() {
   );
 
   const hasDiagnosis = Boolean(
-    targetDiagnostic?.mbti?.type && targetDiagnostic?.businessPersonality?.primaryType
+    diagnostic?.mbti?.type && diagnostic?.businessPersonality?.primaryType
   );
 
   const mbtiCoreText = useMemo(
-    () => buildMbtiCore({ mbtiCode, mbtiAxes }),
+    () =>
+      buildMbtiCore({
+        mbtiCode,
+        mbtiAxes,
+      }),
     [mbtiCode, mbtiAxes]
   );
 
   const mbtiEmotionText = useMemo(
-    () => buildMbtiEmotion({ mbtiCode, mbtiAxes }),
+    () =>
+      buildMbtiEmotion({
+        mbtiCode,
+        mbtiAxes,
+      }),
     [mbtiCode, mbtiAxes]
   );
 
@@ -1519,12 +1477,20 @@ export default function UserProfileDetailPage() {
   );
 
   const businessWorkStyleText = useMemo(
-    () => buildBusinessWorkStyle({ businessCode, businessAxes }),
+    () =>
+      buildBusinessWorkStyle({
+        businessCode,
+        businessAxes,
+      }),
     [businessCode, businessAxes]
   );
 
   const businessValueDriverText = useMemo(
-    () => buildBusinessValueDriver({ businessCode, businessAxes }),
+    () =>
+      buildBusinessValueDriver({
+        businessCode,
+        businessAxes,
+      }),
     [businessCode, businessAxes]
   );
 
@@ -1560,39 +1526,12 @@ export default function UserProfileDetailPage() {
     [mbtiCode, businessCode, mbtiAxes, businessAxes]
   );
 
-  const personalInfoItems = useMemo(
-    () => buildVisiblePersonalInfoItems(targetProfile),
-    [targetProfile]
-  );
-
   if (loading) {
     return (
       <P4LoadingScreen
-        title="MEMBER PROFILE LOADING"
-        subtitle="メンバー情報を読み込み中..."
+        title="PROFILE LOADING"
+        subtitle="プロフィール情報を読み込み中..."
       />
-    );
-  }
-
-  if (error) {
-    return (
-      <>
-        <main className="p4g-shell min-h-screen px-3 py-3.5 pb-24 text-white md:px-4 md:py-6 md:pb-6">
-          <div className="mx-auto flex w-full max-w-5xl flex-col gap-3.5 md:gap-5">
-            <PanelFrame>
-              <div className="hidden md:flex md:flex-col md:gap-3">
-                <P4PageNav role={normalizedViewerRole} />
-              </div>
-            </PanelFrame>
-
-            <div className="rounded-[16px] border-[4px] border-black bg-[#ffd0d0] px-4 py-4 text-[13px] font-black text-[#7b1111] shadow-[0_5px_0_#000] md:rounded-[24px] md:text-base md:shadow-[0_8px_0_#000]">
-              {error}
-            </div>
-          </div>
-        </main>
-
-        <P4BottomNav role={normalizedViewerRole} />
-      </>
     );
   }
 
@@ -1604,23 +1543,23 @@ export default function UserProfileDetailPage() {
             <div className="flex flex-col gap-3 md:gap-4">
               <div>
                 <div className="inline-flex rounded-full border-[3px] border-black bg-[#f3c400] px-2.5 py-1 text-[10px] font-black tracking-[0.12em] text-black shadow-[0_3px_0_#000] md:px-3 md:text-xs md:tracking-[0.18em] md:shadow-[0_4px_0_#000]">
-                  他者プロフィール
+                  プロフィール
                 </div>
-                <h1 className="mt-2.5 text-[18px] font-black leading-tight md:mt-4 md:text-4xl">
-                  {targetProfile?.name || "ユーザー"} のプロフィール
+                <h1 className="mt-2.5 text-[24px] font-black leading-tight md:mt-4 md:text-4xl">
+                  {profile?.name || "ユーザー"} のプロフィール
                 </h1>
-                {targetProfile?.nameKana && (
-                  <p className="mt-1 text-[12px] font-black tracking-[0.04em] text-[#ffe46a] md:mt-2 md:text-base md:tracking-[0.08em]">
-                    {targetProfile.nameKana}
+                {profile?.nameKana && (
+                  <p className="mt-1 text-[13px] font-black tracking-[0.04em] text-[#ffe46a] md:mt-2 md:text-base md:tracking-[0.08em]">
+                    {profile.nameKana}
                   </p>
                 )}
                 <p className="mt-2 max-w-3xl text-[12px] font-bold leading-5 text-white/80 md:text-sm md:leading-normal">
-                  他ユーザーの診断傾向、受信フィードバック、相性情報を表示しています。
+                  診断結果、信頼度、フィードバック、相性情報を確認できます。
                 </p>
               </div>
 
               <div className="hidden md:flex md:flex-col md:gap-3">
-                <P4PageNav role={normalizedViewerRole} />
+                <P4PageNav role={role} />
               </div>
             </div>
           </PanelFrame>
@@ -1631,12 +1570,12 @@ export default function UserProfileDetailPage() {
                 label="氏名"
                 value={
                   <>
-                    <p className="text-[16px] font-black leading-tight md:text-2xl">
-                      {targetProfile?.name || "-"}
+                    <p className="text-lg font-black leading-tight md:text-2xl">
+                      {profile?.name || "-"}
                     </p>
-                    {targetProfile?.nameKana && (
+                    {profile?.nameKana && (
                       <p className="mt-1 text-[12px] font-black tracking-[0.04em] text-[#ffe46a] md:mt-2 md:text-sm md:tracking-[0.08em]">
-                        {targetProfile.nameKana}
+                        {profile.nameKana}
                       </p>
                     )}
                   </>
@@ -1645,8 +1584,8 @@ export default function UserProfileDetailPage() {
               <StatCard
                 label="部署"
                 value={
-                  <p className="text-[16px] font-black leading-tight md:text-xl">
-                    {targetProfile?.departmentName || "-"}
+                  <p className="text-base font-black leading-tight md:text-xl">
+                    {profile?.departmentName || "-"}
                   </p>
                 }
               />
@@ -1654,11 +1593,11 @@ export default function UserProfileDetailPage() {
                 label="ロール / ステータス"
                 value={
                   <>
-                    <p className="text-[16px] font-black leading-tight md:text-xl">
-                      {targetProfile?.role || "-"}
+                    <p className="text-base font-black leading-tight md:text-xl">
+                      {profile?.role || "-"}
                     </p>
                     <p className="mt-1 text-[12px] font-bold leading-5 text-white/70 md:mt-2 md:text-sm md:leading-6">
-                      {getStatusLabel(targetProfile?.status)}
+                      {getStatusLabel(profile?.status)}
                     </p>
                   </>
                 }
@@ -1666,9 +1605,9 @@ export default function UserProfileDetailPage() {
               <StatCard
                 label="最終診断日"
                 value={
-                  <p className="text-[14px] font-black leading-5 md:text-lg md:leading-6">
+                  <p className="text-[15px] font-black leading-5 md:text-lg md:leading-6">
                     {formatDisplayDate(
-                      targetDiagnostic?.diagnosedAt || targetProfile?.lastDiagnosedAt
+                      diagnostic?.diagnosedAt || profile?.lastDiagnosedAt
                     )}
                   </p>
                 }
@@ -1676,33 +1615,46 @@ export default function UserProfileDetailPage() {
             </div>
           </PanelFrame>
 
-          {personalInfoItems.length > 0 && (
-            <PanelFrame title="パーソナル情報">
-              <div className="grid gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {personalInfoItems.map((item) => (
-                  <StatCard
-                    key={item.label}
-                    label={item.label}
-                    value={
-                      <p className="whitespace-pre-wrap text-[14px] font-black leading-6 text-white/90 md:text-base md:leading-7">
-                        {item.value}
-                      </p>
-                    }
-                  />
-                ))}
-              </div>
-            </PanelFrame>
-          )}
-
           {!hasDiagnosis && (
             <PanelFrame title="診断ステータス">
-              <div className="rounded-[18px] border-[4px] border-black bg-[#111111] p-4 shadow-[0_5px_0_#000] md:rounded-[24px] md:p-6 md:shadow-[0_8px_0_#000]">
-                <p className="text-[18px] font-black leading-tight text-[#ffe46a] md:text-2xl">
-                  このユーザーにはまだ診断結果がありません
-                </p>
-                <p className="mt-2.5 text-[13px] font-bold leading-6 text-white/85 md:mt-4 md:text-sm md:leading-7">
-                  診断が完了すると、詳細分析、AI解説、軸バランス、相性情報が表示されます。
-                </p>
+              <div className="grid gap-3.5 lg:grid-cols-[1.2fr_0.8fr] lg:gap-5">
+                <div className="rounded-[18px] border-[4px] border-black bg-[#111111] p-4 shadow-[0_5px_0_#000] md:rounded-[24px] md:p-6 md:shadow-[0_8px_0_#000]">
+                  <p className="text-lg font-black leading-tight text-[#ffe46a] md:text-2xl">
+                    まだ診断結果がありません
+                  </p>
+                  <p className="mt-2.5 text-[13px] font-bold leading-6 text-white/85 md:mt-4 md:text-sm md:leading-7">
+                    プロフィールの詳細分析、AIコメント、軸バランス、相性表示は
+                    診断完了後に解放されます。まずは診断に回答してください。
+                  </p>
+
+                  <div className="mt-3.5 flex flex-wrap gap-2.5 md:mt-5 md:gap-3">
+                    <Link
+                      href="/register/wizard"
+                      className="group relative overflow-hidden rounded-[12px] border-[3px] border-black bg-[#f3c400] px-4 py-2 text-[12px] font-black text-black transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#ffe15a] hover:shadow-[0_8px_0_#000] active:translate-y-0 active:shadow-[0_3px_0_#000] md:rounded-[16px] md:text-sm"
+                    >
+                      <span className="relative z-10">診断を開始する</span>
+                      <span className="absolute inset-y-0 left-0 w-2 bg-white/15 transition-all duration-200 group-hover:w-4" />
+                    </Link>
+                    <Link
+                      href="/home"
+                      className="group relative overflow-hidden rounded-[12px] border-[3px] border-black bg-[#111111] px-4 py-2 text-[12px] font-black text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#1d1d1d] hover:shadow-[0_8px_0_#000] active:translate-y-0 active:shadow-[0_3px_0_#000] md:rounded-[16px] md:text-sm"
+                    >
+                      <span className="relative z-10">ホームへ戻る</span>
+                      <span className="absolute inset-y-0 left-0 w-2 bg-white/15 transition-all duration-200 group-hover:w-4" />
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 md:gap-4">
+                  <InsightCard
+                    title="解放される内容"
+                    body="MBTI とビジネス人格の結果、AI解説、軸バランス、相性情報が表示されます。"
+                  />
+                  <InsightCard
+                    title="プロフィールの使い方"
+                    body="診断後はこのプロフィール画面から、結果の再確認とフィードバック確認ができます。"
+                  />
+                </div>
               </div>
             </PanelFrame>
           )}
@@ -1715,7 +1667,7 @@ export default function UserProfileDetailPage() {
                     label="MBTI"
                     value={
                       <>
-                        <p className="text-[22px] font-black leading-none text-[#ffe46a] md:text-4xl">
+                        <p className="text-[28px] font-black leading-none text-[#ffe46a] md:text-4xl">
                           {mbtiCode}
                         </p>
                         <p className="mt-1 text-[12px] font-bold leading-5 text-white/75 md:mt-2 md:text-sm md:leading-6">
@@ -1735,7 +1687,7 @@ export default function UserProfileDetailPage() {
                     label="ビジネス人格"
                     value={
                       <>
-                        <p className="text-[22px] font-black leading-none text-[#ffe46a] md:text-4xl">
+                        <p className="text-[28px] font-black leading-none text-[#ffe46a] md:text-4xl">
                           {businessCode}
                         </p>
                         <p className="mt-1 text-[12px] font-bold leading-5 text-white/75 md:mt-2 md:text-sm md:leading-6">
@@ -1766,7 +1718,7 @@ export default function UserProfileDetailPage() {
                           ))}
                         </div>
                       ) : (
-                        <p className="text-[14px] font-black md:text-lg">なし</p>
+                        <p className="text-[15px] font-black md:text-lg">なし</p>
                       )
                     }
                   />
@@ -1786,7 +1738,7 @@ export default function UserProfileDetailPage() {
                           ))}
                         </div>
                       ) : (
-                        <p className="text-[14px] font-black md:text-lg">なし</p>
+                        <p className="text-[15px] font-black md:text-lg">なし</p>
                       )
                     }
                   />
@@ -1794,7 +1746,7 @@ export default function UserProfileDetailPage() {
               </PanelFrame>
 
               <PanelFrame title="プロフィール見出し">
-                <div className="rounded-[16px] border-[4px] border-black bg-[#111111] p-3 shadow-[0_4px_0_#000] md:rounded-[22px] md:p-5 md:shadow-[0_8px_0_#000]">
+                <div className="rounded-[16px] border-[4px] border-black bg-[#111111] p-3.5 shadow-[0_5px_0_#000] md:rounded-[22px] md:p-5 md:shadow-[0_8px_0_#000]">
                   <p className="text-[15px] font-black leading-6 text-[#ffe46a] md:text-lg md:leading-8">
                     {profileHeadlineText}
                   </p>
@@ -1806,9 +1758,9 @@ export default function UserProfileDetailPage() {
                   {actionGuideItems.map((item) => (
                     <div
                       key={item}
-                      className="rounded-[16px] border-[4px] border-black bg-[#111111] p-3 shadow-[0_4px_0_#000] md:rounded-[22px] md:p-5 md:shadow-[0_8px_0_#000]"
+                      className="rounded-[16px] border-[4px] border-black bg-[#111111] p-3.5 shadow-[0_5px_0_#000] md:rounded-[22px] md:p-5 md:shadow-[0_8px_0_#000]"
                     >
-                      <p className="text-[13px] font-bold leading-5 text-white/85 md:text-sm md:leading-7">
+                      <p className="text-[13px] font-bold leading-6 text-white/85 md:text-sm md:leading-7">
                         {item}
                       </p>
                     </div>
@@ -1816,55 +1768,10 @@ export default function UserProfileDetailPage() {
                 </div>
               </PanelFrame>
 
-              {showCompatibility && directCompatibility && (
-                <PanelFrame title="あなたとの相性">
-                  <div className="rounded-[16px] border-[4px] border-black bg-[#111111] p-3 shadow-[0_4px_0_#000] md:rounded-[24px] md:p-5 md:shadow-[0_8px_0_#000]">
-                    <div className="flex flex-wrap items-center justify-end gap-3">
-                      {showScore && (
-                        <div className="inline-flex rounded-full border-[3px] border-black bg-[#f3c400] px-2.5 py-1 text-[10px] font-black text-black shadow-[0_3px_0_#000] md:px-3 md:text-xs md:shadow-[0_4px_0_#000]">
-                          {directCompatibility.score}
-                        </div>
-                      )}
-                    </div>
-
-                    <p className="mt-3 text-[13px] font-bold leading-5 text-white/85 md:mt-4 md:text-sm md:leading-7">
-                      {directCompatibility.summary}
-                    </p>
-
-                    <div className="mt-3 grid gap-3 md:mt-4 md:grid-cols-3 md:gap-4">
-                      <ListCard
-                        title="強み"
-                        items={
-                          directCompatibility.strengths.length > 0
-                            ? directCompatibility.strengths
-                            : ["関係性の強みデータがあります。"]
-                        }
-                      />
-                      <ListCard
-                        title="注意点"
-                        items={
-                          directCompatibility.risks.length > 0
-                            ? directCompatibility.risks
-                            : ["大きな衝突リスクは高くありません。"]
-                        }
-                      />
-                      <ListCard
-                        title="関わり方"
-                        items={
-                          directCompatibility.advice.length > 0
-                            ? directCompatibility.advice
-                            : ["最初に期待値を合わせると進めやすいです。"]
-                        }
-                      />
-                    </div>
-                  </div>
-                </PanelFrame>
-              )}
-
               <PanelFrame title="タイププロフィール">
                 <div className="grid gap-3.5 lg:grid-cols-2 lg:gap-5">
                   <div className="grid gap-3 md:gap-4">
-                    <div className="rounded-[16px] border-[4px] border-black bg-[#111111] p-3 shadow-[0_4px_0_#000] md:rounded-[22px] md:p-5 md:shadow-[0_8px_0_#000]">
+                    <div className="rounded-[16px] border-[4px] border-black bg-[#111111] p-3.5 shadow-[0_5px_0_#000] md:rounded-[22px] md:p-5 md:shadow-[0_8px_0_#000]">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="rounded-full border-[3px] border-black bg-white px-2 py-1 text-[10px] font-black text-black shadow-[0_3px_0_#000] md:px-3 md:text-xs md:shadow-[0_4px_0_#000]">
                           MBTI
@@ -1878,7 +1785,7 @@ export default function UserProfileDetailPage() {
                         {getMbtiTypeName(mbtiCode)}
                       </p>
 
-                      <p className="mt-2.5 text-[13px] font-bold leading-5 text-white/85 md:mt-4 md:text-sm md:leading-7">
+                      <p className="mt-2.5 text-[13px] font-bold leading-6 text-white/85 md:mt-4 md:text-sm md:leading-7">
                         {mbtiCommentaryBlock?.body ||
                           "MBTIのプロファイル情報はまだありません。"}
                       </p>
@@ -1892,7 +1799,7 @@ export default function UserProfileDetailPage() {
                   </div>
 
                   <div className="grid gap-3 md:gap-4">
-                    <div className="rounded-[16px] border-[4px] border-black bg-[#111111] p-3 shadow-[0_4px_0_#000] md:rounded-[22px] md:p-5 md:shadow-[0_8px_0_#000]">
+                    <div className="rounded-[16px] border-[4px] border-black bg-[#111111] p-3.5 shadow-[0_5px_0_#000] md:rounded-[22px] md:p-5 md:shadow-[0_8px_0_#000]">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="rounded-full border-[3px] border-black bg-white px-2 py-1 text-[10px] font-black text-black shadow-[0_3px_0_#000] md:px-3 md:text-xs md:shadow-[0_4px_0_#000]">
                           ビジネス人格
@@ -1907,7 +1814,7 @@ export default function UserProfileDetailPage() {
                           getBusinessTypeName(businessCode)}
                       </p>
 
-                      <p className="mt-2.5 text-[13px] font-bold leading-5 text-white/85 md:mt-4 md:text-sm md:leading-7">
+                      <p className="mt-2.5 text-[13px] font-bold leading-6 text-white/85 md:mt-4 md:text-sm md:leading-7">
                         {businessCommentaryBlock?.body ||
                           commentary.businessProfile?.summary ||
                           "タイプの詳細情報はまだ設定されていません。"}
@@ -1957,16 +1864,16 @@ export default function UserProfileDetailPage() {
               <PanelFrame title="相性ガイド">
                 <div className="grid gap-3 md:gap-4 lg:grid-cols-3">
                   <InsightCard
-                    title={formatRelationshipText(compatibilityGuide.fitTitle)}
-                    body={formatRelationshipText(compatibilityGuide.fitBody)}
+                    title={compatibilityGuide.fitTitle}
+                    body={compatibilityGuide.fitBody}
                   />
                   <InsightCard
-                    title={formatRelationshipText(compatibilityGuide.cautionTitle)}
-                    body={formatRelationshipText(compatibilityGuide.cautionBody)}
+                    title={compatibilityGuide.cautionTitle}
+                    body={compatibilityGuide.cautionBody}
                   />
                   <InsightCard
-                    title={formatRelationshipText(compatibilityGuide.adviceTitle)}
-                    body={formatRelationshipText(compatibilityGuide.adviceBody)}
+                    title={compatibilityGuide.adviceTitle}
+                    body={compatibilityGuide.adviceBody}
                   />
                 </div>
               </PanelFrame>
@@ -1975,15 +1882,13 @@ export default function UserProfileDetailPage() {
 
           <section
             className={`grid gap-3.5 md:gap-5 ${
-              showCompatibility && hasDiagnosis
-                ? "lg:grid-cols-[1.05fr_0.95fr]"
-                : "lg:grid-cols-1"
+              showCompatibility ? "lg:grid-cols-[1.05fr_0.95fr]" : "lg:grid-cols-1"
             }`}
           >
             <div className="flex flex-col gap-3.5 md:gap-5">
               <PanelFrame title="フィードバック要約">
                 <div className="flex items-start justify-between gap-3">
-                  <h2 className="text-[18px] font-black leading-tight md:text-2xl">
+                  <h2 className="text-lg font-black leading-tight md:text-2xl">
                     フィードバック要約
                   </h2>
                   <p className="text-[10px] font-black tracking-[0.12em] text-white/55 md:text-xs md:tracking-[0.15em]">
@@ -1993,7 +1898,7 @@ export default function UserProfileDetailPage() {
 
                 {feedbackSectionSummaries.length === 0 ? (
                   <div className="mt-3 rounded-[14px] border-[3px] border-black bg-[#111111] p-3 shadow-[0_4px_0_#000] md:mt-4 md:rounded-[18px] md:p-4 md:shadow-[0_6px_0_#000]">
-                    <p className="text-[12px] font-bold leading-5 text-white/80 md:text-sm md:leading-6">
+                    <p className="text-[13px] font-bold leading-6 text-white/80 md:text-sm">
                       まだ受信フィードバックがありません。
                     </p>
                   </div>
@@ -2002,12 +1907,12 @@ export default function UserProfileDetailPage() {
                     {feedbackSectionSummaries.map((summary) => (
                       <div
                         key={summary.title}
-                        className="rounded-[16px] border-[4px] border-black bg-[#111111] p-3 shadow-[0_4px_0_#000] md:rounded-[22px] md:p-4 md:shadow-[0_8px_0_#000]"
+                        className="rounded-[16px] border-[4px] border-black bg-[#111111] p-3.5 shadow-[0_5px_0_#000] md:rounded-[22px] md:p-4 md:shadow-[0_8px_0_#000]"
                       >
                         <p className="text-[13px] font-black text-[#ffe46a] md:text-sm">
                           {summary.title}
                         </p>
-                        <ul className="mt-2 list-disc pl-5 text-[12px] font-bold leading-5 text-white/85 md:mt-3 md:text-sm md:leading-7">
+                        <ul className="mt-2 list-disc pl-5 text-[13px] font-bold leading-6 text-white/85 md:mt-3 md:text-sm md:leading-7">
                           {summary.contents.map((content, index) => (
                             <li key={`${summary.title}-${index}`}>{content}</li>
                           ))}
@@ -2020,7 +1925,7 @@ export default function UserProfileDetailPage() {
 
               <PanelFrame title="フィードバック一覧">
                 <div className="flex items-start justify-between gap-3">
-                  <h2 className="text-[18px] font-black leading-tight md:text-2xl">
+                  <h2 className="text-lg font-black leading-tight md:text-2xl">
                     フィードバック一覧
                   </h2>
                   <p className="text-[10px] font-black tracking-[0.12em] text-white/55 md:text-xs md:tracking-[0.15em]">
@@ -2030,7 +1935,7 @@ export default function UserProfileDetailPage() {
 
                 {latestFeedbacks.length === 0 ? (
                   <div className="mt-3 rounded-[14px] border-[3px] border-black bg-[#111111] p-3 shadow-[0_4px_0_#000] md:mt-4 md:rounded-[18px] md:p-4 md:shadow-[0_6px_0_#000]">
-                    <p className="text-[12px] font-bold leading-5 text-white/80 md:text-sm md:leading-6">
+                    <p className="text-[13px] font-bold leading-6 text-white/80 md:text-sm">
                       まだフィードバックがありません。
                     </p>
                   </div>
@@ -2039,7 +1944,7 @@ export default function UserProfileDetailPage() {
                     {latestFeedbacks.map((fb) => (
                       <div
                         key={fb.id}
-                        className="rounded-[16px] border-[4px] border-black bg-[#111111] p-3 shadow-[0_4px_0_#000] md:rounded-[22px] md:p-5 md:shadow-[0_8px_0_#000]"
+                        className="rounded-[16px] border-[4px] border-black bg-[#111111] p-3.5 shadow-[0_5px_0_#000] md:rounded-[22px] md:p-5 md:shadow-[0_8px_0_#000]"
                       >
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div className="min-w-0">
@@ -2064,7 +1969,7 @@ export default function UserProfileDetailPage() {
                               <p className="text-[13px] font-black text-[#ffe46a] md:text-sm">
                                 {section.title || "メモ"}
                               </p>
-                              <p className="mt-1.5 whitespace-pre-wrap text-[13px] font-bold leading-5 text-white/85 md:mt-2 md:text-sm md:leading-7">
+                              <p className="mt-1.5 whitespace-pre-wrap text-[13px] font-bold leading-6 text-white/85 md:mt-2 md:text-sm md:leading-7">
                                 {section.content || "(未入力)"}
                               </p>
                             </div>
@@ -2080,6 +1985,7 @@ export default function UserProfileDetailPage() {
             {showCompatibility && hasDiagnosis && (
               <div className="flex flex-col gap-3.5 md:gap-5">
                 <CompatibilityListPanel
+                  title="良好関係"
                   headline="相性が良い人"
                   items={bestMatches}
                   emptyMessage="良好関係に該当する相手がまだいません。"
@@ -2087,6 +1993,7 @@ export default function UserProfileDetailPage() {
                 />
 
                 <CompatibilityListPanel
+                  title="補完関係"
                   headline="補完しやすい人"
                   items={supportMatches}
                   emptyMessage="補完関係に該当する相手がまだいません。"
@@ -2094,6 +2001,7 @@ export default function UserProfileDetailPage() {
                 />
 
                 <CompatibilityListPanel
+                  title="自分を広げてくれる相手"
                   headline="自分を広げてくれる相手"
                   items={stretchMatches}
                   emptyMessage="該当する相手がまだいません。"
@@ -2105,7 +2013,7 @@ export default function UserProfileDetailPage() {
         </div>
       </main>
 
-      <P4BottomNav role={normalizedViewerRole} />
+      <P4BottomNav role={role} />
     </>
   );
 }
